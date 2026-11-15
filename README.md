@@ -33,24 +33,28 @@ It is an independent derivative of [whatsmyagentdoing](https://github.com/Charon
 
 The current desktop interface is Russian. These English, Chinese and Russian READMEs translate the documentation, not the complete application UI.
 
+## Updates
+
+Version 0.2.0 adds signed AppImage updates: notify or download automatically while open, then explicitly confirm installation. A separate backup is kept; there is no silent install or restart. Checks default to once per 24 hours and can be disabled. Version 0.1.0 must be replaced manually once. See [update security, controls and limits](docs/UPDATES.md).
+
 ## Start here
 
-Download `Ubi_Bureau-0.1.0-x86_64.AppImage` and its checksum from [Releases](https://github.com/romantrnt/ubi-bureau/releases).
+Download `Ubi_Bureau-0.2.0-x86_64.AppImage` and its checksum from [Releases](https://github.com/romantrnt/ubi-bureau/releases).
 
 **This is a host-runtime AppImage, not a self-contained Linux bundle.** It packages Ubi Bureau, its web assets and **Node.js 24.22.3**. System Node is not needed for the AppImage, but Python 3 with PyGObject, GTK4 and **WebKitGTK 6.0** introspection are required. It targets glibc-based Linux x86_64 with working WebGL; GNOME/Wayland is the primary desktop target. The bundled Node runtime requires glibc 2.28+ and compatible libstdc++/libgcc; Alpine/musl is not a supported target. Other distributions and desktops are not automatically certified by the AppImage format.
 
 ```sh
-chmod +x Ubi_Bureau-0.1.0-x86_64.AppImage
-./Ubi_Bureau-0.1.0-x86_64.AppImage --check
-./Ubi_Bureau-0.1.0-x86_64.AppImage --demo
+chmod +x Ubi_Bureau-0.2.0-x86_64.AppImage
+./Ubi_Bureau-0.2.0-x86_64.AppImage --check
+./Ubi_Bureau-0.2.0-x86_64.AppImage --demo
 # Then show your actual local sessions:
-./Ubi_Bureau-0.1.0-x86_64.AppImage
+./Ubi_Bureau-0.2.0-x86_64.AppImage
 ```
 
 If FUSE mounting is unavailable:
 
 ```sh
-./Ubi_Bureau-0.1.0-x86_64.AppImage --appimage-extract-and-run
+./Ubi_Bureau-0.2.0-x86_64.AppImage --appimage-extract-and-run
 ```
 
 Close the demo window before launching the normal mode. To change `--demo` or `--private`, close and relaunch the app.

@@ -125,6 +125,8 @@ function snapshot(watcher, opts) {
 }
 
 function createServer(watcher, opts, { onShutdown, onRestart } = {}) {
+  const { Updates, updateRoute } = require('./updates');
+  const updates = opts.updates || new Updates();
   const clients = new Set();
   let last = '';
 
@@ -150,6 +152,7 @@ function createServer(watcher, opts, { onShutdown, onRestart } = {}) {
       res.writeHead(403).end();
       return;
     }
+    if (updateRoute(req, res, updates, server.address()?.port || req.socket.localPort)) return;
     const url = new URL(req.url, 'http://localhost');
     if (STATIC[url.pathname]) {
       const [file, type] = STATIC[url.pathname];

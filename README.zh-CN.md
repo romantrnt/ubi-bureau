@@ -33,24 +33,28 @@ Ubi Bureau 将本机智能体的活动呈现在一个安静的桌面办公室中
 
 当前桌面界面为俄语。这三份 README 是文档翻译，不代表完整的界面本地化。
 
+## 更新
+
+0.2.0 支持带签名的 AppImage 更新：应用打开时可通知或自动下载，但安装始终需要明确确认。保留旧版本备份，不会静默安装或自动重启。默认每 24 小时检查，可关闭。0.1.0 需要先手动替换一次。[更新机制、安全与限制](docs/UPDATES.md)。
+
 ## 开始使用
 
-从 [Releases](https://github.com/romantrnt/ubi-bureau/releases) 下载 `Ubi_Bureau-0.1.0-x86_64.AppImage` 及其校验和。
+从 [Releases](https://github.com/romantrnt/ubi-bureau/releases) 下载 `Ubi_Bureau-0.2.0-x86_64.AppImage` 及其校验和。
 
 **这是依赖主机运行环境的 AppImage，并非完全自包含的软件包。** 它包含 Ubi Bureau、网页资源和 **Node.js 24.22.3**。运行 AppImage 不需要系统 Node，但仍需 Python 3、PyGObject、GTK4 和 **WebKitGTK 6.0** introspection。目标平台为基于 glibc、支持 WebGL 的 Linux x86_64，主要面向 GNOME/Wayland。内置 Node 要求 glibc 2.28+ 及兼容的 libstdc++/libgcc；不声明支持 Alpine/musl。AppImage 格式本身不保证兼容每一种发行版和桌面环境。
 
 ```sh
-chmod +x Ubi_Bureau-0.1.0-x86_64.AppImage
-./Ubi_Bureau-0.1.0-x86_64.AppImage --check
-./Ubi_Bureau-0.1.0-x86_64.AppImage --demo
+chmod +x Ubi_Bureau-0.2.0-x86_64.AppImage
+./Ubi_Bureau-0.2.0-x86_64.AppImage --check
+./Ubi_Bureau-0.2.0-x86_64.AppImage --demo
 # 然后显示真实的本机会话：
-./Ubi_Bureau-0.1.0-x86_64.AppImage
+./Ubi_Bureau-0.2.0-x86_64.AppImage
 ```
 
 如果无法使用 FUSE 挂载：
 
 ```sh
-./Ubi_Bureau-0.1.0-x86_64.AppImage --appimage-extract-and-run
+./Ubi_Bureau-0.2.0-x86_64.AppImage --appimage-extract-and-run
 ```
 
 切换到普通模式前，请先关闭演示窗口。更改 `--demo` 或 `--private` 模式时，需要关闭并重新启动应用。

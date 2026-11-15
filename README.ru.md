@@ -33,24 +33,28 @@ Ubi Bureau превращает локальную работу агентов �
 
 Текущий настольный интерфейс русскоязычный. README на английском, китайском и русском переводят документацию, а не весь интерфейс приложения.
 
+## Обновления
+
+В 0.2.0 появились подписанные обновления AppImage: уведомление или автоматическая загрузка, пока окно открыто, затем явное подтверждение установки. Старая версия сохраняется отдельно; скрытой установки и перезапуска нет. Проверка по умолчанию раз в 24 часа, её можно отключить. Версию 0.1.0 нужно один раз заменить вручную. [Устройство, безопасность и ограничения обновлений](docs/UPDATES.md).
+
 ## Быстрый старт
 
-Скачайте `Ubi_Bureau-0.1.0-x86_64.AppImage` и контрольную сумму из [Releases](https://github.com/romantrnt/ubi-bureau/releases).
+Скачайте `Ubi_Bureau-0.2.0-x86_64.AppImage` и контрольную сумму из [Releases](https://github.com/romantrnt/ubi-bureau/releases).
 
 **Это AppImage с системными зависимостями, а не полностью автономная сборка.** В него входят Ubi Bureau, веб-ресурсы и **Node.js 24.22.3**. Системный Node для AppImage не нужен, но на компьютере требуются Python 3 с PyGObject, GTK4 и introspection для **WebKitGTK 6.0**. Целевая платформа: Linux x86_64 на glibc с работающим WebGL, прежде всего GNOME/Wayland. Встроенный Node требует glibc 2.28+ и совместимые libstdc++/libgcc; Alpine/musl не заявлены как поддерживаемые. Сам формат AppImage не гарантирует совместимость с каждым дистрибутивом и окружением.
 
 ```sh
-chmod +x Ubi_Bureau-0.1.0-x86_64.AppImage
-./Ubi_Bureau-0.1.0-x86_64.AppImage --check
-./Ubi_Bureau-0.1.0-x86_64.AppImage --demo
+chmod +x Ubi_Bureau-0.2.0-x86_64.AppImage
+./Ubi_Bureau-0.2.0-x86_64.AppImage --check
+./Ubi_Bureau-0.2.0-x86_64.AppImage --demo
 # Затем открыть настоящие локальные сессии:
-./Ubi_Bureau-0.1.0-x86_64.AppImage
+./Ubi_Bureau-0.2.0-x86_64.AppImage
 ```
 
 Если FUSE недоступен:
 
 ```sh
-./Ubi_Bureau-0.1.0-x86_64.AppImage --appimage-extract-and-run
+./Ubi_Bureau-0.2.0-x86_64.AppImage --appimage-extract-and-run
 ```
 
 Перед обычным запуском закройте демонстрационное окно. Чтобы изменить режим `--demo` или `--private`, закройте и снова запустите приложение.

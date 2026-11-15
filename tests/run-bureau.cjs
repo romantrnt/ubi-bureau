@@ -24,7 +24,7 @@ watcher.sessions = () => {
 const server = createServer(watcher, { demo: true, privacy: false });
 server.listen(0, '127.0.0.1', async () => {
   try {
-    for (const file of ['bureau-ui.cjs', 'bureau-focus.cjs', 'bureau-picking.cjs', 'bureau-tools.cjs']) {
+    for (const file of (process.env.BUREAU_TEST_FILES || 'bureau-ui.cjs,bureau-focus.cjs,bureau-picking.cjs,bureau-tools.cjs,bureau-telemetry.cjs,bureau-updates.cjs,bureau-lifecycle.cjs').split(',')) {
       console.log('\nRUN '+file);
       await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [path.join(__dirname, file)], {

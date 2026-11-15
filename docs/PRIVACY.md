@@ -14,7 +14,7 @@ The native window connects to its local HTTP server through `127.0.0.1`. The ser
 
 There is no built-in upload of local conversations to a hosted Ubi Bureau service. The app is not a cloud-agent relay. Optional integrations configured by the user, such as a local Magpie source, have their own trust boundaries. Do not put their credentials in source files, screenshots or issues.
 
-The office's bundled assets work locally. Selecting an extra scene can download a pack from the catalog's upstream URL; the downloaded bytes are checked against the pinned SHA-256. This is network traffic, not a session-data upload. The native variant disables upstream self-updating so it cannot overwrite the fork in place.
+The office's bundled assets work locally. Selecting an extra scene can download a pack from the catalog's upstream URL; the downloaded bytes are checked against the pinned SHA-256. This is network traffic, not a session-data upload. The upstream self-updater remains disabled. Ubi Bureau 0.2.0 has its own signed AppImage updater: by default it requests a public GitHub release manifest after 30 seconds and every 24 hours while the native AppImage is open. Manual-only mode disables automatic checks; automatic download is opt-in, installation always explicit. No session data, titles, IDs or credentials are included in update requests. GitHub/CDN still see normal connection metadata such as IP address. Preferences are stored in the local Ubi configuration directory. See [Updates](UPDATES.md) for trust and recovery limits.
 
 ## Private and demo modes
 

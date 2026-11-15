@@ -83,7 +83,7 @@ class Office(Gtk.Application):
 
     def start_server(self):
         try:
-            env = {**os.environ}
+            env = {**os.environ, 'BUREAU_NATIVE': '1'}
             if ARGS.demo:
                 env['BUREAU_DEMO'] = '1'
             if ARGS.private:
@@ -110,8 +110,10 @@ class Office(Gtk.Application):
             try:
                 self.proc.wait(timeout=3)
             except subprocess.TimeoutExpired:
-                self.proc.kill()
-                self.proc.wait()
+                # The child has stopped the watcher/listener and cancelled transfers.
+                # Do not SIGKILL a pending atomic update/fsync on a slow disk.
+                # It exits itself after cleanup; no GUI or new code is launched.
+                pass
         Gtk.Application.do_shutdown(self)
 
 if __name__ == '__main__':

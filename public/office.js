@@ -543,7 +543,8 @@
           p.mode = 'leave';
           this.release(p);
           p.desk = null;
-          this.goTo(p, this.plan.door);
+          if (this.reducedMotion || this.motionPaused) this.people.delete(k);
+          else this.goTo(p, this.plan.door);
         }
       }
       this.first = false;
@@ -566,7 +567,9 @@
         x: door.x, y: door.y,
         path: [], walkFace: 'front', until: 0, mode: null,
         // On the first snapshot everyone is placed directly, no stampede.
-        placeOnArrive: this.first || this.reducedMotion,
+        placeOnArrive: this.first || this.reducedMotion || this.motionPaused,
+        arriving: !this.first && !this.reducedMotion && !this.motionPaused,
+        discoveredAt: Date.now(),
       };
     }
 
@@ -1547,10 +1550,14 @@
 
     // Advance people and the cat; shared by the 2D and 3D renderers.
     step(dt) {
-      if (this.reducedMotion || this.motionPaused) return;
+      if (this.reducedMotion || this.motionPaused) {
+        // Pausing animation must not keep removed sessions visible forever.
+        for (const [k, p] of this.people) if (p.leaving) this.people.delete(k);
+        return;
+      }
       const wall = Date.now();
       for (const [k, p] of this.people) {
-        if(this.focusedKey===k)continue;
+        if(this.focusedKey===k && !p.leaving)continue;
         if (p.mode === 'wander') {
           if (p.poi && !p.path.length && p.until === Infinity) p.until = wall + p.stay;
           this.wander(p, wall);
@@ -1565,6 +1572,7 @@
           this.people.delete(k);
         }
       }
+      for (const p of this.people.values()) if (!p.path.length) p.arriving = false;
       this.moveCat(dt, wall);
     }
 

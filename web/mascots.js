@@ -93,3 +93,10 @@ export function dotMascot(){
   box(root,.075,.068,.075,-.205,1.19,0,light,.018);sphere(root,.039,.13,1.10,0,rim);
   return finish(root,1.28);
 }
+
+// Factory-cached geometry/materials outlive actors; unique extrusion/rod meshes do not.
+export function disposeMascot(root) {
+  const shared = new Set(geometries.values()), unique = new Set();
+  root.traverse(o => { if (o.geometry && !shared.has(o.geometry)) unique.add(o.geometry); });
+  unique.forEach(g => g.dispose());
+}

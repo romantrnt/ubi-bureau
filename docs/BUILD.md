@@ -77,10 +77,10 @@ The build produces the x86_64 AppImage under `dist/`. The package includes the a
 The packaging process uses the official AppImage Type 2 runtime and Node.js distribution, checking their pinned digests before use. Building requires the download tools used by the packaging script plus `mksquashfs` from squashfs-tools and tools to unpack the Node archive. Review the script and its pinned runtime source before changing the pin.
 
 ```sh
-chmod +x dist/Ubi_Bureau-0.1.0-x86_64.AppImage
-dist/Ubi_Bureau-0.1.0-x86_64.AppImage --version
-dist/Ubi_Bureau-0.1.0-x86_64.AppImage --check
-dist/Ubi_Bureau-0.1.0-x86_64.AppImage --demo
+chmod +x dist/Ubi_Bureau-0.2.0-x86_64.AppImage
+dist/Ubi_Bureau-0.2.0-x86_64.AppImage --version
+dist/Ubi_Bureau-0.2.0-x86_64.AppImage --check
+dist/Ubi_Bureau-0.2.0-x86_64.AppImage --demo
 ```
 
 The native app is single-instance. Close its window before relaunching with different data/privacy flags; activating an existing window does not change its mode.

@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { codexMascot, dotMascot } from './mascots.js';
+import { codexMascot, dotMascot, disposeMascot } from './mascots.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
@@ -140,6 +140,7 @@ export class Office3D extends window.Office {
     this.scene.add(this.fillLight);
     this.scene.add(this.sun, this.sun.target);
 
+    this.assetResources = new Set();
     this.actors = new Map();     // person key -> { obj, mixer, actions, current, head, cup }
     this.screens = new Map();    // desk -> emissive screen mesh
     this.blinkers = [];
@@ -158,9 +159,11 @@ export class Office3D extends window.Office {
     if (!this.gl) return;
     this.controls.dispose();
     this.motionQuery?.removeEventListener('change',this.onMotion);
+    for (const [key, actor] of this.actors || []) this.removeActor(key, actor);
     const geometries = new Set(), materials = new Set(), textures = new Set();
     this.scene.traverse(o=>{ if(o.isMesh && !o.userData.sharedMascot){ if(o.geometry)geometries.add(o.geometry); for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);} } });
-    geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());
+    new Set([...geometries,...materials,...textures,...this.assetResources]).forEach(r=>r.dispose());
+    this.assetResources.clear();
     this.envTarget?.dispose();
     this.gl.dispose();
     this.gl.domElement.remove();
@@ -195,6 +198,17 @@ export class Office3D extends window.Office {
     }
     for (const m of Object.values(this.models)) {
       m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    }
+    // Furniture clones borrow their asset geometry/materials. Room rebuilds
+    // dispose only generated resources, never these shared originals.
+    for (const model of [...Object.values(this.models), ...this.chars.map(c => c.scene)]) {
+      model.traverse(o => {
+        if (o.geometry) this.assetResources.add(o.geometry);
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m) {
+          this.assetResources.add(m);
+          for (const value of Object.values(m)) if (value?.isTexture) this.assetResources.add(value);
+        }
+      });
     }
     this.loaded = true;
   }
@@ -254,12 +268,44 @@ export class Office3D extends window.Office {
     return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
   }
 
+  disposeGenerated(root) {
+    const resources = new Set();
+    root?.traverse(o => {
+      if (o.geometry) resources.add(o.geometry);
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m) {
+        resources.add(m);
+        for (const value of Object.values(m)) if (value?.isTexture) resources.add(value);
+      }
+    });
+    for (const resource of resources) if (!this.assetResources.has(resource)) resource.dispose();
+  }
+
+  clearRoom() {
+    if (this.room) { this.scene.remove(this.room); this.disposeGenerated(this.room); }
+    // A changing floor plan can remove furniture. No animation may retain a
+    // reference to the previous room (the 7 → 8 desk transition removes foosball).
+    this.rods = []; this.foosball = null; this.ball = null; this.doorPivot = null;
+    this.arcadeScreen = null; this.lampLight = null; this.windowMat = null;
+    this.water = null; this.waterBase = null; this.stars = null; this.planet = null;
+    this.bobbers = []; this.flames = []; this.pendants = []; this.pulsers = [];
+    this.clearMat = null; this._glass = null; this.blinkers = [];
+    this.screens.clear();
+  }
+
+  removeActor(key, actor) {
+    this.scene.remove(actor.obj, actor.prop, actor.halo);
+    actor.mixer.stopAllAction(); actor.mixer.uncacheRoot(actor.obj);
+    if (actor.procedural) disposeMascot(actor.obj);
+    this.disposeGenerated(actor.prop); this.disposeGenerated(actor.halo);
+    this.actors.delete(key);
+  }
+
   // ------------------------------------------------------------ build room
 
   build() {
     if (this.plan.scene) return this.buildScene();
     const plan = this.plan;
-    if (this.room) { this.scene.remove(this.room); }
+    this.clearRoom();
     this.room = new THREE.Group();
     this.scene.add(this.room);
     this.screens.clear();
@@ -328,7 +374,11 @@ export class Office3D extends window.Office {
     this.boxMesh(-T, -T, 0, T, dy - 0.6 + T, WALL_H, 0, { mat: wallMat });
     this.boxMesh(-T, dy + 0.6, 0, T, D - dy - 0.6, WALL_H, 0, { mat: wallMat });
     this.boxMesh(-T, dy - 0.6, 1.8, T, 1.2, WALL_H - 1.8, 0, { mat: wallMat });
-    this.boxMesh(-T + 0.02, dy - 0.55, 0, 0.06, 1.1, 1.78, dark ? 0x5c4431 : 0xa8825a);
+    this.doorPivot = new THREE.Group();
+    this.doorPivot.position.set(-T + .02, 0, dy - .55);
+    this.room.add(this.doorPivot);
+    this.boxMesh(0, 0, 0, .06, 1.1, 1.78, dark ? 0x5c4431 : 0xa8825a, {group:this.doorPivot});
+    this.boxMesh(.065, .91, .78, .04, .12, .035, 0xb9bdba, {group:this.doorPivot, metal:.6});
     this.boxMesh(0, dy - 0.6, 0, 0.9, 1.2, 0.01, dark ? 0x5a3b2e : 0xb9654a, { shadow: false });
     // posters + whiteboard
     for (const ps of plan.posters) {
@@ -348,7 +398,7 @@ export class Office3D extends window.Office {
     for (const dk of plan.desks) this.buildDesk(dk);
 
     for (const p of plan.props) this.buildProp(p);
-    this.fitCamera3D(true);
+    this.fitCamera3D(!this.fitted);
   }
 
   patternTexture(paint) {
@@ -460,7 +510,7 @@ export class Office3D extends window.Office {
         this.boxMesh(x + 0.05, y + 0.05, 0.66, 1.5, 0.7, 0.01, 0x2f8a4a, { shadow: false });
         this.boxMesh(x, y, 0.66, 1.6, 0.05, 0.18, 0x6e533b);
         this.boxMesh(x, y + 0.75, 0.66, 1.6, 0.05, 0.18, 0x6e533b);
-        this.rods = [];
+        this.rods = []; this.foosball = p;
         for (let k = 0; k < 6; k++) {
           const rod = new THREE.Group();
           const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.2, 6), new THREE.MeshStandardMaterial({ color: 0xc8ccd0, metalness: 0.7, roughness: 0.3 }));
@@ -599,7 +649,7 @@ export class Office3D extends window.Office {
 
   buildScene() {
     const def = this.plan.scene;
-    if (this.room) this.scene.remove(this.room);
+    this.clearRoom();
     this.room = new THREE.Group();
     this.scene.add(this.room);
     this.screens.clear();
@@ -636,7 +686,7 @@ export class Office3D extends window.Office {
       }
     }
     for (const p of def.props) this.buildSceneProp(p);
-    this.fitCamera3D(true);
+    this.fitCamera3D(!this.fitted);
   }
 
   // Top of the ground (sand, dock…) under a point, ignoring anything taller
@@ -1069,6 +1119,8 @@ export class Office3D extends window.Office {
     halo.rotation.x=-Math.PI/2;halo.visible=false;
     this.scene.add(obj, prop, halo);
     a = { obj, halo, procedural, bounds: new THREE.Box3(), labelAnchor:obj.getObjectByName('label-anchor'), anchor:new THREE.Vector3(), mixer, actions, current: null, head, headRest: head ? head.rotation.x : 0, armR, prop, cup, book, yaw: 0, last: { x: p.x, y: p.y } };
+    a.pickMeshes=[];obj.traverse(o=>{if(o.isMesh)a.pickMeshes.push(o);});
+    a.limbs=['arm-left','arm-right','leg-left','leg-right'].map(name=>obj.getObjectByName(name));
     this.actors.set(p.key, a);
     return a;
   }
@@ -1101,7 +1153,7 @@ export class Office3D extends window.Office {
 
   syncActors(dt) {
     for (const [k, a] of this.actors) {
-      if (!this.people.has(k)) { this.scene.remove(a.obj, a.prop, a.halo); this.actors.delete(k); }
+      if (!this.people.has(k)) this.removeActor(k, a);
     }
     for (const p of this.people.values()) {
       const a = this.actorFor(p);
@@ -1235,8 +1287,8 @@ export class Office3D extends window.Office {
       this.room.updateMatrixWorld(true);
       this.seats = new Map();
       this.ground = new Map();
-      for (const a of this.actors.values()) this.scene.remove(a.obj, a.prop, a.halo);
-      this.actors.clear();
+      // Keep actor identity and shared GPU assets through room growth.
+      // Only furniture and its transient animation state were rebuilt.
     }
     const dt = this.reducedMotion || this.motionPaused ? 0 : Math.min(0.05, this.clock.getDelta());
     const t = this.reducedMotion ? 0 : this.t / 1000;
@@ -1273,8 +1325,13 @@ export class Office3D extends window.Office {
     }
     if (this.arcadeScreen) this.arcadeScreen.material.emissive.setHSL((t * 0.05) % 1, 0.7, 0.5);
     const fbPlaying = this.plan.pois.filter((q) => q.pair === 'fb' && q.taken).length === 2;
-    if (this.rods) this.rods.forEach((r, k) => { r.position.z = this.plan.props.find((q) => q.t === 'foosball').y + 0.4 + (fbPlaying ? Math.sin(t * 8 + k) * 0.06 : 0); r.rotation.z = fbPlaying ? Math.sin(t * 12 + k) * 0.6 : 0; });
+    if (this.foosball) this.rods.forEach((r, k) => { r.position.z = this.foosball.y + 0.4 + (fbPlaying ? Math.sin(t * 8 + k) * 0.06 : 0); r.rotation.z = fbPlaying ? Math.sin(t * 12 + k) * 0.6 : 0; });
     this.updateBall();
+    if (this.doorPivot && !this.reducedMotion && !this.motionPaused) {
+      const entering = [...this.people.values()].some(p => (p.arriving || p.leaving) && Math.hypot(p.x-this.plan.door.x,p.y-this.plan.door.y)<1.6);
+      const target = entering ? Math.PI*.43 : 0;
+      this.doorPivot.rotation.y += (target-this.doorPivot.rotation.y)*Math.min(1,dt*7);
+    }
 
     this.syncActors(dt);
     if (this.insetMoving() || this.insetSettling) { this.fitCamera3D(false); this.insetSettling = this.insetMoving(); }
@@ -1282,7 +1339,8 @@ export class Office3D extends window.Office {
     this.gl.render(this.scene, this.camera);
 
     this.drawAgentOverlay(c);
-    if(this._pointerClient && !this._orbiting && !this._pointerDown){
+    if(this._pointerClient && !this._orbiting && !this._pointerDown && (!this.lastHoverPick || performance.now()-this.lastHoverPick>80)){
+      this.lastHoverPick=performance.now();
       const key=this.pickAt(this._pointerClient.x,this._pointerClient.y);
       if(key!==this.hoverKey){this.hoverKey=key;const p=key&&this.people.get(key);this.onHover(p?p.s:null,key?this.getAnchor(key):null,false);}
     }
@@ -1295,18 +1353,16 @@ export class Office3D extends window.Office {
     const maxX=this.cw-this.inset();
     for(const p of this.people.values()){
       const a=this.actors.get(p.key);if(!a)continue;
-      a.obj.updateMatrixWorld(true);
-      a.bounds.setFromObject(a.obj);
       if(a.labelAnchor)a.labelAnchor.getWorldPosition(a.anchor);
-      else {a.bounds.getCenter(a.anchor);a.anchor.y=a.bounds.max.y+.1;}
+      else {a.bounds.setFromObject(a.obj);a.bounds.getCenter(a.anchor);a.anchor.y=a.bounds.max.y+.1;}
       const v=a.anchor.clone().project(this.camera);
       if(v.z < -1 || v.z > 1)continue;
       const x=(v.x+1)*.5*this.cw,y=(1-v.y)*.5*this.ch;
       if(x<0||x>maxX||y<0||y>this.ch)continue;
       this.anchors.set(p.key,{x:x+rect.left,y:y+rect.top,localX:x,localY:y,depth:v.z});
-      a.obj.traverse(o=>{if(o.isMesh)this.pickTargets.push(o);});
+      this.pickTargets.push(...a.pickMeshes);
       const hot=this.hoverKey===p.key||this.selectedKey===p.key;
-      const attention=p.s.status==='waiting'||p.s.status==='error';
+      const attention=p.s.status==='waiting'||p.s.status==='error'||p.arriving;
       projected.push({p,a,x,y,z:v.z,hot,attention});
     }
     const occupied=[];
@@ -1316,9 +1372,9 @@ export class Office3D extends window.Office {
     for(const q of projected){
       const {p,x,y,hot,attention}=q;
       c.font='600 11px system-ui, sans-serif';
-      let text=this.label(p.s)||p.s.agent;
+      let text=(p.arriving ? '+ ' : '')+(this.label(p.s)||p.s.agent);
       while(c.measureText(text).width>144&&text.length>2)text=text.slice(0,-2)+'…';
-      const show=hot||attention||(!p.s.subagent&&this.camera.zoom>1.35);
+      const show=hot||(this.showAgent&&(attention||(!p.s.subagent&&p.s.agent!=='dot')));
       const w=show?Math.max(56,c.measureText(text).width+30):18,h=show?24:18;
       const r={x0:x-w/2,x1:x+w/2,y0:y-h-6,y1:y-6,key:p.key,z:q.z};
       const collide=occupied.some(o=>r.x0<o.x1+4&&r.x1>o.x0-4&&r.y0<o.y1+3&&r.y1>o.y0-3);
@@ -1328,7 +1384,7 @@ export class Office3D extends window.Office {
     }
     accepted.sort((a,b)=>b.z-a.z);
     for(const {p,r,text,show,hot} of accepted){
-      const tone={thinking:'#8b79a2',tool:'#687b8b',typing:'#638675',waiting:'#b18543',error:'#bd665a',done:'#71866a',unknown:'#92928c',idle:'#92928c'}[p.s.status]||'#92928c';
+      const tone={thinking:'#a88ce8',tool:'#62a1df',typing:'#53ad88',waiting:'#d8a348',error:'#e67c6d',done:'#82ad6c',unknown:'#92928c',idle:'#92928c'}[p.s.status]||'#92928c';
       c.fillStyle=hot?'#373936':'rgba(247,247,243,.96)';
       c.beginPath();c.roundRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0,8);c.fill();
       c.strokeStyle=hot?'#a9ada4':'rgba(60,63,58,.22)';c.lineWidth=hot?1.5:1;c.stroke();
