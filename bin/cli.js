@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+process.env.WMAD_NO_UPDATE_CHECK = '1';
+process.env.WMAD_LOCAL_VARIANT = '1';
 
 const http = require('http');
 const { spawn } = require('child_process');
@@ -13,13 +15,13 @@ const external = require('../src/external');
 const pkg = require('../package.json');
 const EXTERNAL_DIRS = external.location();
 
-const HELP = `whatsmyagentdoing ${pkg.version}
+const HELP = `Ubi Bureau ${pkg.version}
 See what every Claude Code, Codex, Gemini CLI, Antigravity, Copilot CLI, OMP, Pi, Kimi Code, DSH, Grok Build, OpenCode and Hermes agent is doing, live.
 
 Usage: node bin/cli.js [options]   (or /myoffice as a skill)
 
 Options:
-  -p, --port <n>    Port to serve on (default 4545)
+  -p, --port <n>    Port to serve on (default 4547)
   --hours <n>       Show sessions active in the last n hours (default 24)
   --omp-dir <path>  OMP sessions root (or a direct --session-dir directory)
   --no-open         Don't open the browser
@@ -57,7 +59,7 @@ For multiple local instances, WMAD_MAGPIE_SOURCES is a JSON array
 of {url, key} objects, used instead of the single-source variables.`;
 
 function parseArgs(argv) {
-  const o = { port: 4545, hours: 24, open: true, privacy: false, json: false, demo: false, stop: false, scenes: false, scene: null, removeScene: null, update: false };
+  const o = { port: 4547, hours: 24, open: true, privacy: false, json: false, demo: false, stop: false, scenes: false, scene: null, removeScene: null, update: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-h' || a === '--help') { console.log(HELP); process.exit(0); }
@@ -260,7 +262,7 @@ async function main() {
       const n = watcher.sessions().length;
       const openUrl = url + query;
       const what = o.demo ? 'demo team' : `${n} session${n === 1 ? '' : 's'} in the last ${o.hours}h`;
-      console.log(`whatsmyagentdoing v${updater.localVersion()} → ${url}  (${what}, Ctrl+C to stop)`);
+      console.log(`Ubi Bureau v${updater.localVersion()} → ${url}  (${what}, Ctrl+C to stop)`);
       printUpdateHint();
       if (o.open) openBrowser(openUrl);
     });

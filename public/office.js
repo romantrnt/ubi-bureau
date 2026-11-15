@@ -14,6 +14,7 @@
   const SKIN = ['#f3cfb0', '#e5b38f', '#c98d66', '#9a6646', '#6e4630', '#f7dcc7'];
   const HAIR = ['#2a2019', '#4b3020', '#8a4b2a', '#c99a5b', '#1c1c1c', '#8c8c8c', '#a33a2c', '#3d3550'];
   const SHIRT = {
+    dot: ['#544566', '#66557a', '#44394f'],
     claude: ['#c96442', '#d9825f', '#b4553a', '#e09a72'],
     codex: ['#10a37f', '#2bb38f', '#0d8a6b', '#4cc3a0'],
     gemini: ['#4f7cf0', '#6b8ff5', '#3d66d6', '#8aa6f8'],
@@ -28,8 +29,9 @@
   // Load once per page from the same origin so video capture stays readable.
   // Initials remain a fallback if an image cannot be loaded.
   const AGENT_BADGES = {
+    dot: { label: 'Dot', short: 'D', color: '#8871a2', logo: '/assets/agents/dot.svg' },
     claude: { label: 'Claude', short: 'Cl', color: '#c96442', logo: '/assets/agents/claude.png' },
-    codex: { label: 'Codex', short: 'Cx', color: '#10a37f', logo: '/assets/agents/codex.png' },
+    codex: { label: 'Codex', short: 'Cx', color: '#10a37f', logo: '/assets/agents/codex.svg' },
     gemini: { label: 'Gemini', short: 'G', color: '#4f7cf0', logo: '/assets/agents/gemini.png' },
     copilot: { label: 'Copilot', short: 'Co', color: '#8f5cf5', logo: '/assets/agents/copilot.svg', mono: true },
     kimi: { label: 'Kimi Code', short: 'Ki', logo: '/assets/agents/kimi.svg', mono: true },
@@ -484,9 +486,9 @@
     // ------------------------------------------------------------ sessions → people
 
     update(sessions) {
-      const working = sessions.filter((s) => WORKING.has(s.status));
+      const working = sessions.filter((s) => s.agent === 'dot' || WORKING.has(s.status));
       const off = sessions
-        .filter((s) => !WORKING.has(s.status))
+        .filter((s) => s.agent !== 'dot' && !WORKING.has(s.status))
         .sort((a, b) => (b.lastEventAt || 0) - (a.lastEventAt || 0));
       const wanderers = off.slice(0, MAX_WANDERERS);
       this.offDuty = off.length - wanderers.length;
@@ -532,6 +534,7 @@
           if (p.mode !== 'wander') { p.mode = 'wander'; p.desk = null; p.poi = null; p.until = 0; }
           // Someone started working at the desk this one was napping on.
           if (p.napDesk && takenDesks.has(p.napDesk)) { this.release(p); p.path = []; }
+          if(p.placeOnArrive)this.wander(p,Date.now());
         }
       }
       for (const [k, p] of this.people) {
@@ -563,7 +566,7 @@
         x: door.x, y: door.y,
         path: [], walkFace: 'front', until: 0, mode: null,
         // On the first snapshot everyone is placed directly, no stampede.
-        placeOnArrive: this.first,
+        placeOnArrive: this.first || this.reducedMotion,
       };
     }
 
@@ -606,7 +609,7 @@
       this.goTo(p, choice);
     }
 
-    setVisible(v) { this.visible = v; if (v) this.resize(); }
+    setVisible(v) { const changed=this.visible!==v; this.visible=v; if(changed&&v)this.resize(); }
 
     // Room on the right covered by an overlay (the agent panel). The canvas
     // keeps its size; the view eases over so the room stays centred in what
@@ -1531,9 +1534,9 @@
     frame(now) {
       const dt = Math.min(0.05, (now - this.last) / 1000);
       this.last = now;
-      this.t = now;
-      if (!this.visible) return;
-      this.step(dt);
+      this.t = (this.t || 0) + (this.motionPaused || this.reducedMotion ? 0 : dt * 1000);
+      if (!this.visible || document.hidden) return;
+      this.step(this.reducedMotion || this.motionPaused ? 0 : dt);
       if (this.draw() !== false) {
         if (!this.first && ++this.framesShown === 3) this.markReady(true);
         // Capture immediately: a WebGL drawing buffer may be cleared after
@@ -1544,8 +1547,10 @@
 
     // Advance people and the cat; shared by the 2D and 3D renderers.
     step(dt) {
+      if (this.reducedMotion || this.motionPaused) return;
       const wall = Date.now();
       for (const [k, p] of this.people) {
+        if(this.focusedKey===k)continue;
         if (p.mode === 'wander') {
           if (p.poi && !p.path.length && p.until === Infinity) p.until = wall + p.stay;
           this.wander(p, wall);

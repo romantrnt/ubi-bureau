@@ -1,0 +1,33 @@
+const {chromium}=require('playwright'),assert=require('assert/strict');
+let browser;
+(async()=>{
+ const url=process.env.BUREAU_URL||'http://127.0.0.1:38315';
+ const b=browser=await chromium.launch({headless:true,executablePath:process.env.WMAD_CHROMIUM||(process.env.WMAD_CHROMIUM||chromium.executablePath()),args:['--no-sandbox','--enable-unsafe-swiftshader']});
+ const page=await b.newPage({viewport:{width:1440,height:960},colorScheme:'light'}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{const E=window.EventSource;window.__qaEventSources=[];window.EventSource=class extends E{constructor(...a){super(...a);window.__qaEventSources.push(this)}};});
+ await page.goto(url+'/?quality=high&dotOffice=1');await page.waitForFunction(()=>typeof office!=='undefined'&&office?.framesShown>4,{timeout:60000});
+ assert.match(await page.title(),/Ubi Bureau$/);assert.equal(await page.locator('#qualSeg').isVisible(),false);
+ assert.equal(await page.locator('h1').textContent(),'Ubi Bureau');
+ await page.evaluate(()=>document.fonts.ready);assert.ok(await page.evaluate(()=>document.fonts.check('24px Pixelify')),'Pixel title font loads');
+ const neutral=await page.evaluate(()=>{const c=getComputedStyle(document.querySelector('header')).backgroundColor.match(/\d+/g).map(Number);return Math.max(...c)-Math.min(...c)});assert.ok(neutral<9,'Chrome must remain neutral grey');
+ await page.screenshot({path:'/tmp/ubi-overview-light.png'});await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:'/tmp/ubi-overview-dark.png'});await page.emulateMedia({colorScheme:'light'});
+ await page.evaluate(()=>{
+ window.__qaEventSources.forEach(s=>s.close());
+ const base={agent:'dot',source:'dot-snapshot',subagent:true,status:'unknown',snapshotStale:true,observedAt:Date.now()-180000,lastEventAt:Date.now()-180000,lastObservedStatus:'running',cwd:null,model:null,activity:null,reply:null,prompt:null};
+ onData({now:Date.now(),sessions:[{...base,id:'/qa/a',key:'dot:/qa/a',title:'Одинаковое имя'},{...base,id:'/qa/b',key:'dot:/qa/b',title:'Одинаковое имя'},{...base,id:'/qa/long',key:'dot:/qa/long',title:'Очень длинное имя для проверки переноса '.repeat(5)}],dotConnection:{available:true,observedAt:base.observedAt,stale:true}});
+ });
+ await page.locator('[data-filter="unknown"]').click();assert.equal(await page.locator('.srow').count(),3);
+ await page.locator('#agentSearch').fill('длинное');assert.equal(await page.locator('.srow').count(),1);
+ await page.locator('#agentSearch').fill('');
+ await page.evaluate(()=>officeOpts.onHover(state.data.sessions[1],{x:innerWidth-330,y:100},false));
+ assert.equal(await page.locator('#tip').getAttribute('data-key'),'dot:/qa/b');assert.equal(await page.locator('#tip strong').textContent(),'Одинаковое имя');assert.equal(await page.locator('#tip .card').count(),0);
+ const r=await page.locator('#tip').boundingBox(), side=await page.locator('#side').boundingBox();assert.ok(r.x>=0&&r.x+r.width<=side.x&&r.y>=58);
+ await page.screenshot({path:'/tmp/ubi-ui-hover.png'});
+ await page.locator('.srow[data-key="dot:/qa/b"]').click();assert.equal(await page.locator('#detailBody').getAttribute('data-key'),'dot:/qa/b');assert.equal(await page.locator('#detailBody .dmeta').count(),0);assert.match(await page.locator('#detailBody').textContent(),/Нет свежих данных/);
+ await page.locator('#sideBack').click();await page.waitForTimeout(300);assert.equal(await page.locator('.srow[data-key="dot:/qa/b"]').evaluate(e=>e===document.activeElement),true);
+ await page.locator('.srow[data-key="dot:/qa/b"]').click();await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>sel),null);assert.equal(await page.evaluate(()=>office.selectedKey),null);
+ await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});await page.screenshot({path:'/tmp/ubi-ui-dark.png'});
+ assert.equal(errors.length,0,errors.join('\n'));
+ const fail=await b.newPage();await fail.route('**/office3d.js',r=>r.abort());await fail.goto(url);await fail.waitForSelector('#retryScene');assert.equal(await fail.locator('.office-gl').count(),0);assert.match(await fail.locator('#loaderText').textContent(),/3D/);
+ await b.close();console.log('PASS: Russian title, 3D-only, key identity, equal-name selection, search, unknown filter, compact/clamped hover, inspector truthfulness, keyboard return, no script errors, WebGL/import failure retry without 2D.');
+})().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1});

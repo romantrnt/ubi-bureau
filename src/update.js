@@ -55,7 +55,7 @@ async function checkLatest(force = false) {
 }
 
 function canUpdate() {
-  return fs.existsSync(path.join(ROOT, '.git'));
+  return !process.env.WMAD_LOCAL_VARIANT && fs.existsSync(path.join(ROOT, '.git'));
 }
 
 function info() {

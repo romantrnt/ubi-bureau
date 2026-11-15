@@ -1,9 +1,9 @@
 {
-  "name": "whatsmyagentdoing",
-  "version": "0.8.1",
-  "description": "Live office for Claude Code, Codex, Gemini CLI and OMP sessions.",
+  "name": "ubi-bureau",
+  "version": "0.1.0",
+  "description": "A local-first 3D office for coding agents, with a native Linux window.",
   "bin": {
-    "whatsmyagentdoing": "bin/cli.js"
+    "ubi-bureau": "bin/cli.js"
   },
   "files": [
     "bin",
@@ -26,13 +26,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Charonyuu/whatsmyagentdoing.git"
+    "url": "git+https://github.com/romantrnt/ubi-bureau.git"
   },
-  "homepage": "https://github.com/Charonyuu/whatsmyagentdoing#readme",
+  "homepage": "https://github.com/romantrnt/ubi-bureau#readme",
   "bugs": {
-    "url": "https://github.com/Charonyuu/whatsmyagentdoing/issues"
+    "url": "https://github.com/romantrnt/ubi-bureau/issues"
   },
-  "author": "cheoyu",
+  "author": "romantrnt",
   "devDependencies": {
     "esbuild": "^0.25.12",
     "playwright": "^1.62.1",
@@ -51,6 +51,9 @@
     "test:transcript": "node --test tests/transcript.cjs",
     "test:server": "node --test tests/server.cjs",
     "test:clients": "node --test tests/clients.cjs",
-    "test:ui:clients": "node tests/ui-clients.cjs"
+    "test:ui:clients": "node tests/ui-clients.cjs",
+    "test": "node --test tests/watcher.cjs tests/omp.cjs tests/magpie.cjs tests/copilot.cjs tests/antigravity.cjs tests/external.cjs tests/hook.cjs tests/usage.cjs tests/transcript.cjs tests/server.cjs tests/clients.cjs tests/dot-snapshot.cjs",
+    "test:bureau": "node tests/run-bureau.cjs",
+    "appimage": "bash scripts/build-appimage.sh"
   }
 }

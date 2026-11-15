@@ -3,6 +3,9 @@
 // Bubbles and name tags are drawn by the 2D code on a canvas overlay.
 // Source file: `npm run build` bundles it with three.js into public/office3d.js.
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { codexMascot, dotMascot } from './mascots.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
@@ -20,7 +23,7 @@ const FURNITURE = ['desk', 'chairDesk', 'computerScreen', 'computerKeyboard', 'c
 const STATUS_COLOR = {
   thinking: 0x8b6be6, tool: 0x3b8ee0, typing: 0x22a874, waiting: 0xe09412, error: 0xde4b40,
 };
-const CHAR_HEIGHT = 0.92; // world units (≈ tiles)
+const CHAR_HEIGHT = 1.18; // world units (≈ tiles)
 const WALL_H = 2.4;
 const SIT_FORWARD = 0.16;
 
@@ -73,7 +76,7 @@ export class Office3D extends window.Office {
     try {
       this.gl = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     } catch (e) {
-      // No WebGL here; the page falls back to the 2D office.
+      // Keep the 3D view explicit: the page offers a retry instead of a 2D fallback.
       this.loadError = 'WebGL unavailable';
       this.markReady(false);
       return;
@@ -83,14 +86,40 @@ export class Office3D extends window.Office {
     this.gl.shadowMap.type = THREE.PCFSoftShadowMap;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
     this.gl.toneMapping = THREE.ACESFilmicToneMapping;
-    this.gl.toneMappingExposure = 1.15;
+    this.gl.toneMappingExposure = .9;
     this.gl.domElement.className = 'office-gl';
     root.insertBefore(this.gl.domElement, this.canvas);
 
     this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(this.pal.dark ? 0x343433 : 0xdfdfdc);
+    const pmrem = new THREE.PMREMGenerator(this.gl);
+    const roomEnv = new RoomEnvironment();
+    this.envTarget = pmrem.fromScene(roomEnv, .08);
+    this.scene.environment = this.envTarget.texture;
+    this.scene.environmentIntensity = .22;
+    pmrem.dispose(); roomEnv.dispose();
+    this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+    this.onMotion = e => { this.reducedMotion = e.matches; };
+    this.motionQuery.addEventListener('change',this.onMotion);
+    this.raycaster = new THREE.Raycaster();
+    this.pointerNDC = new THREE.Vector2();
+    this.anchors = new Map(); this.labels = []; this.pickTargets = [];
+    this._pointerDown = null; this._dragged = false; this._orbiting = false;
+    this._down = e => { this._pointerDown = {x:e.clientX,y:e.clientY}; this._dragged=false; };
+    this._move = e => { if(this._pointerDown && Math.hypot(e.clientX-this._pointerDown.x,e.clientY-this._pointerDown.y)>5){this._dragged=true;this.hoverKey=null;this.onHover(null);} };
+    this._up = () => { this._pointerDown=null; };
+    this._leave = () => {this._pointerClient=null;};
+    this.canvas.addEventListener('mouseleave',this._leave);
+    this.canvas.addEventListener('pointerdown',this._down);
+    this.canvas.addEventListener('pointermove',this._move);
+    this.canvas.addEventListener('pointerup',this._up);
+    this.canvas.addEventListener('pointercancel',this._up);
     this.camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 200);
     this.controls = new OrbitControls(this.camera, this.canvas);
     this.controls.enableDamping = true;
+    this.controls.addEventListener('start',()=>{this._orbiting=true;this.onHover(null);});
+    this.controls.addEventListener('end',()=>{this._orbiting=false;});
     this.controls.minPolarAngle = 0.35;
     this.controls.maxPolarAngle = 1.25;
     this.controls.minZoom = 0.6;
@@ -98,13 +127,17 @@ export class Office3D extends window.Office {
     this.controls.screenSpacePanning = true;
     this.controls.zoomToCursor = true;
 
-    this.hemi = new THREE.HemisphereLight(0xfff8ee, 0x8a7a66, 1.0);
+    this.hemi = new THREE.HemisphereLight(0xdceeff, 0xa89279, .68);
     this.scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight(0xfff1dc, 1.6);
+    this.sun = new THREE.DirectionalLight(0xffe1b3, 2.05);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0006;
-    this.sun.shadow.normalBias = 0.02;
+    this.sun.shadow.normalBias = 0.025;
+    this.sun.shadow.radius = 4;
+    this.fillLight = new THREE.DirectionalLight(0xb2d6ff, .45);
+    this.fillLight.position.set(12,8,-7);
+    this.scene.add(this.fillLight);
     this.scene.add(this.sun, this.sun.target);
 
     this.actors = new Map();     // person key -> { obj, mixer, actions, current, head, cup }
@@ -124,6 +157,11 @@ export class Office3D extends window.Office {
     super.destroy();
     if (!this.gl) return;
     this.controls.dispose();
+    this.motionQuery?.removeEventListener('change',this.onMotion);
+    const geometries = new Set(), materials = new Set(), textures = new Set();
+    this.scene.traverse(o=>{ if(o.isMesh && !o.userData.sharedMascot){ if(o.geometry)geometries.add(o.geometry); for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);} } });
+    geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());
+    this.envTarget?.dispose();
     this.gl.dispose();
     this.gl.domElement.remove();
   }
@@ -188,7 +226,7 @@ export class Office3D extends window.Office {
 
   boxMesh(x, y, z, w, d, h, color, opts = {}) {
     const mat = opts.mat || new THREE.MeshStandardMaterial({ color, roughness: opts.rough ?? 0.8, metalness: opts.metal ?? 0, ...(opts.emissive ? { emissive: opts.emissive, emissiveIntensity: opts.ei ?? 1 } : {}) });
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(.035, w*.12, h*.12, d*.12)), mat);
     m.position.set(x + w / 2, z + h / 2, y + d / 2);
     m.castShadow = opts.shadow !== false;
     m.receiveShadow = true;
@@ -227,9 +265,10 @@ export class Office3D extends window.Office {
     this.screens.clear();
     this.blinkers = [];
     const { W, D, OW, MR, PY } = plan;
-    const dark = this.pal.dark;
+    const dark = false; // Scene lighting is independent of system UI theme.
 
     // floors
+    this.boxMesh(-.18,-.18,-.28,W+.36,D+.36,.26,0xb7b9b6,{rough:.85});
     const floor = (x, y, w, d, color, tex) => {
       const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.9, map: tex || null });
       const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
@@ -239,8 +278,8 @@ export class Office3D extends window.Office {
       this.room.add(m);
     };
     const planks = this.patternTexture((c, s) => {
-      c.fillStyle = dark ? '#4a3f35' : '#e3cfb0'; c.fillRect(0, 0, s, s);
-      c.strokeStyle = dark ? 'rgba(0,0,0,.25)' : 'rgba(120,90,50,.18)'; c.lineWidth = 2;
+      c.fillStyle = dark ? '#4a3f35' : '#d4b68f'; c.fillRect(0, 0, s, s);
+      c.strokeStyle = dark ? 'rgba(0,0,0,.25)' : 'rgba(120,90,50,.10)'; c.lineWidth = 2;
       for (let i = 0; i <= 4; i++) { c.beginPath(); c.moveTo(0, i * s / 4); c.lineTo(s, i * s / 4); c.stroke(); }
       for (let i = 0; i < 4; i++) { const x = ((i * 37) % 4 + 0.5) * s / 4; c.beginPath(); c.moveTo(x, i * s / 4); c.lineTo(x, (i + 1) * s / 4); c.stroke(); }
     });
@@ -250,23 +289,29 @@ export class Office3D extends window.Office {
     });
     planks.repeat.set(OW / 2, D / 2);
     floor(0, 0, OW, D, 0xffffff, planks);
-    floor(OW, 0, W - OW, MR, dark ? 0x33404d : 0xc9d3dc);
+    floor(OW, 0, W - OW, MR, dark ? 0x33404d : 0xbebfba);
     tiles.repeat.set((W - OW), (PY - MR));
     floor(OW, MR, W - OW, PY - MR, 0xffffff, tiles);
     const planks2 = planks.clone(); planks2.needsUpdate = true; planks2.repeat.set((W - OW) / 2, (D - PY) / 2);
     floor(OW, PY, W - OW, D - PY, 0xffffff, planks2);
     const pp = plan.pp;
-    const mat = new THREE.Mesh(new THREE.PlaneGeometry(pp.x1 - pp.x0 + 1.2, 2.7), new THREE.MeshStandardMaterial({ color: dark ? 0x2f4a3a : 0xbfd8c4, roughness: 1 }));
+    const mat = new THREE.Mesh(new THREE.PlaneGeometry(pp.x1 - pp.x0 + 1.2, 2.7), new THREE.MeshStandardMaterial({ color: dark ? 0x2f4a3a : 0xaec6b9, roughness: 1 }));
     mat.rotation.x = -Math.PI / 2; mat.position.set((pp.x0 + pp.x1) / 2, 0.005, pp.y - 0.05); mat.receiveShadow = true;
     this.room.add(mat);
 
     // walls: back (z=0) with windows, left (x=0) with a door
-    const wallCol = dark ? 0x4a4640 : 0xf4efe6;
+    const wallCol = dark ? 0x4a4640 : 0xdbdcd7;
     const wallMat = new THREE.MeshStandardMaterial({ color: wallCol, roughness: 0.95 });
     const T = 0.12;
     let cx = -T;
-    const sky = skyNow();
-    this.windowMat = new THREE.MeshStandardMaterial({ color: sky.sky, emissive: sky.sky, emissiveIntensity: 0.6 });
+    const sky = { sky:0xadd9ee, sun:2.05, amb:.68, night:false };
+    const skyCanvas=document.createElement('canvas');skyCanvas.width=256;skyCanvas.height=192;
+    const skyCtx=skyCanvas.getContext('2d'),grad=skyCtx.createLinearGradient(0,0,0,192);
+    grad.addColorStop(0,'#6aadd7');grad.addColorStop(1,'#c7e7ed');skyCtx.fillStyle=grad;skyCtx.fillRect(0,0,256,192);
+    skyCtx.fillStyle='#9cbdcc';for(let i=0;i<10;i++){const h=20+(i*31%60);skyCtx.fillRect(i*29,192-h,22,h);}
+    skyCtx.fillStyle='#eef6f4';for(const [x,y] of [[40,35],[165,65]]){skyCtx.beginPath();skyCtx.roundRect(x,y,56,16,8);skyCtx.fill();skyCtx.beginPath();skyCtx.arc(x+23,y,14,0,Math.PI*2);skyCtx.fill();}
+    const skyTexture=new THREE.CanvasTexture(skyCanvas);skyTexture.colorSpace=THREE.SRGBColorSpace;
+    this.windowMat = new THREE.MeshBasicMaterial({map:skyTexture});
     for (const wx of plan.windows) {
       this.boxMesh(cx, -T, 0, wx - cx, T, WALL_H, 0, { mat: wallMat });
       this.boxMesh(wx, -T, 0, 1.5, T, 0.85, 0, { mat: wallMat });
@@ -287,7 +332,7 @@ export class Office3D extends window.Office {
     this.boxMesh(0, dy - 0.6, 0, 0.9, 1.2, 0.01, dark ? 0x5a3b2e : 0xb9654a, { shadow: false });
     // posters + whiteboard
     for (const ps of plan.posters) {
-      const m = this.textPlane(ps.text, ps.color, 0.9, 1.0);
+      const m = this.textPlane(ps.text === 'SHIP IT' ? 'ФОКУС' : 'КОМАНДА', ps.text==='SHIP IT'?'#515653':'#777b70', 0.9, 1.0);
       m.rotation.y = Math.PI / 2; m.position.set(0.005, 1.45, ps.y + 0.45);
       this.room.add(m);
     }
@@ -295,7 +340,7 @@ export class Office3D extends window.Office {
     wb.position.set(OW + 3.7, 1.4, 0.005);
     this.room.add(wb);
     this.whiteboardScribbles(OW + 3.7);
-    const sign = this.textPlane('MEETING', dark ? '#3a4a5a' : '#8ea3b8', 1.3, 0.3);
+    const sign = this.textPlane('ВМЕСТЕ', dark ? '#4c4d49' : '#8e9189', 1.3, 0.3);
     sign.position.set(OW + 1.1, 2.15, 0.005);
     this.room.add(sign);
 
@@ -334,7 +379,8 @@ export class Office3D extends window.Office {
 
   buildDesk(dk) {
     const { x, y } = dk;
-    this.place('desk', x, y, 1.4, 0.8, { h: 0.75, rot: dk.side === 's' ? 0 : Math.PI });
+    this.boxMesh(x,y,.705,1.4,.8,.065,0xb68c64,{rough:.58});
+    for(const lx of [.08,1.24]) for(const ly of [.07,.66]) this.boxMesh(x+lx,y+ly,0,.07,.07,.705,0x575b59,{rough:.5,metal:.15});
     const top = 0.75;
     const back = dk.side === 's' ? y + 0.12 : y + 0.48;
     const rot = dk.side === 's' ? 0 : Math.PI;
@@ -347,7 +393,8 @@ export class Office3D extends window.Office {
     if (h % 4 === 1) this.place('lampSquareTable', x + 1.1, back, 0.25, 0.25, { y0: top, h: 0.35 });
     // chair, facing the desk
     const seat = dk.seat;
-    this.place('chairDesk', seat.x - 0.3, seat.y - 0.3, 0.6, 0.6, { h: 0.9, rot: dk.side === 's' ? Math.PI : 0 });
+    const chair=this.place('chairDesk', seat.x - 0.3, seat.y - 0.3, 0.6, 0.6, { h: 0.9, rot: dk.side === 's' ? Math.PI : 0 });
+    if(chair)chair.traverse(o=>{if(o.isMesh){o.material=o.material.clone();const c=o.material.color;if(c && c.r>c.b*1.15){c.setHex(0x777f7b);o.material.roughness=.85;}}});
     // The monitor's own screen quad lights up in the worker's status colour.
     if (mon) {
       let quad = null;
@@ -360,7 +407,7 @@ export class Office3D extends window.Office {
   }
 
   buildProp(p) {
-    const dark = this.pal.dark;
+    const dark = false; // Scene lighting is independent of system UI theme.
     switch (p.t) {
       case 'panel':
         this.boxMesh(p.x, p.y, 0, p.w, p.d, p.h, new THREE.Color(p.color).getHex(), { rough: 1 });
@@ -681,8 +728,8 @@ export class Office3D extends window.Office {
 
   // Floor: planks, tiles or a checkerboard over a rectangle.
   buildFloor(p) {
-    const dark = this.pal.dark;
-    const a = p.color || (dark ? '#4a3f35' : '#e3cfb0');
+    const dark = false; // Scene lighting is independent of system UI theme.
+    const a = p.color || (dark ? '#4a3f35' : '#d4b68f');
     const b = p.color2 || (dark ? '#3e342b' : '#d6bf9c');
     const tex = this.patternTexture((c, s) => {
       c.fillStyle = a; c.fillRect(0, 0, s, s);
@@ -943,7 +990,7 @@ export class Office3D extends window.Office {
       const dist = 40;
       this.camera.position.set(center.x + dist * 0.62, center.y + dist * 0.58, center.z + dist * 0.62);
       this.controls.target.copy(center);
-      this.camera.zoom = this.compact ? 1 : 1.25;
+      this.camera.zoom = 1;
       this.fitted = true;
     }
     this.camera.lookAt(this.controls.target);
@@ -959,7 +1006,7 @@ export class Office3D extends window.Office {
     // extend the frustum over the covered part so the canvas never resizes.
     const vw = Math.max(120, this.cw - this.inset());
     const aspect = vw / this.ch;
-    let w = (maxX - minX) * 1.06, h = (maxY - minY) * 1.1;
+    let w = (maxX - minX) * 1.12, h = (maxY - minY) * 1.16;
     // Leave room for screen-space badges and bubbles in a small PiP window.
     if (this.compact) h *= this.ch / Math.max(80, this.ch - 48);
     if (w / h > aspect) h = w / aspect; else w = h * aspect;
@@ -968,12 +1015,13 @@ export class Office3D extends window.Office {
     Object.assign(this.camera, { left: cxv - w / 2, right: cxv - w / 2 + full, top: cyv + h / 2, bottom: cyv - h / 2 });
     this.camera.updateProjectionMatrix();
     // Sun casts shadows over the whole room.
-    this.sun.position.set(center.x - 6, 14, center.z - 3);
+    this.sun.position.set(center.x - 8, 14, center.z + 6);
     this.sun.target.position.copy(center);
     const sc = this.sun.shadow.camera;
     const r = Math.max(W, D) * 0.75;
     Object.assign(sc, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 50 });
     sc.updateProjectionMatrix();
+    if(this.focusedKey&&!reset)this.focusAgent(this.focusedKey);
   }
 
   setInset(px, animate = true) {
@@ -993,26 +1041,34 @@ export class Office3D extends window.Office {
 
   // ------------------------------------------------------------ actors
 
+  dotModel() { return dotMascot(); }
+  codexModel() { return codexMascot(); }
+
   actorFor(p) {
     let a = this.actors.get(p.key);
     if (a) return a;
     const gltf = this.chars[p.h % this.chars.length];
-    const obj = cloneSkinned(gltf.scene);
+    const procedural = p.s.agent === 'dot' || p.s.agent === 'codex';
+    const obj = p.s.agent === 'dot' ? this.dotModel() : p.s.agent === 'codex' ? this.codexModel() : cloneSkinned(gltf.scene);
+    obj.userData.sessionKey=p.key;
+    obj.traverse(o=>{if(o.isMesh){o.userData.sessionKey=p.key;o.userData.sharedMascot=procedural;}});
     obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     const box = new THREE.Box3().setFromObject(obj);
-    const s = CHAR_HEIGHT * (p.s && p.s.subagent ? 0.8 : 1) / (box.max.y - box.min.y);
+    const s = CHAR_HEIGHT * (p.s && p.s.subagent ? 0.94 : 1) / (box.max.y - box.min.y);
     obj.scale.setScalar(s);
     const mixer = new THREE.AnimationMixer(obj);
     const actions = {};
-    for (const clip of gltf.animations) actions[clip.name] = mixer.clipAction(clip);
+    if (!procedural) for (const clip of gltf.animations) actions[clip.name] = mixer.clipAction(clip);
     let head = null, armR = null;
     obj.traverse((o) => { if (o.name === 'head') head = o; if (o.name === 'arm-right') armR = o; });
     const prop = new THREE.Group();
     const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.1, 10), new THREE.MeshStandardMaterial({ color: 0xffffff }));
     const book = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.04), new THREE.MeshStandardMaterial({ color: 0xc96442 }));
     prop.add(cup, book);
-    this.scene.add(obj, prop);
-    a = { obj, mixer, actions, current: null, head, headRest: head ? head.rotation.x : 0, armR, prop, cup, book, yaw: 0, last: { x: p.x, y: p.y } };
+    const halo=new THREE.Mesh(new THREE.RingGeometry(.38,.43,40),new THREE.MeshBasicMaterial({color:0x858882,transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));
+    halo.rotation.x=-Math.PI/2;halo.visible=false;
+    this.scene.add(obj, prop, halo);
+    a = { obj, halo, procedural, bounds: new THREE.Box3(), labelAnchor:obj.getObjectByName('label-anchor'), anchor:new THREE.Vector3(), mixer, actions, current: null, head, headRest: head ? head.rotation.x : 0, armR, prop, cup, book, yaw: 0, last: { x: p.x, y: p.y } };
     this.actors.set(p.key, a);
     return a;
   }
@@ -1045,7 +1101,7 @@ export class Office3D extends window.Office {
 
   syncActors(dt) {
     for (const [k, a] of this.actors) {
-      if (!this.people.has(k)) { this.scene.remove(a.obj, a.prop); this.actors.delete(k); }
+      if (!this.people.has(k)) { this.scene.remove(a.obj, a.prop, a.halo); this.actors.delete(k); }
     }
     for (const p of this.people.values()) {
       const a = this.actorFor(p);
@@ -1060,7 +1116,16 @@ export class Office3D extends window.Office {
       if (st.act === 'station') chosen = p.s.status === 'thinking' ? 'idle' : (p.desk.anim || 'interact-right');
       else if (st.pose !== 'walk' && p.poi && p.poi.anim) chosen = p.poi.anim;
       this.play(a, chosen);
-      a.mixer.update(dt);
+      if (!this.reducedMotion) a.mixer.update(dt);
+      if(a.procedural){
+        const walking=st.pose==='walk'&&!this.reducedMotion&&!this.motionPaused&&this.focusedKey!==p.key;
+        for(const side of ['left','right']){
+          const limb=a.obj.getObjectByName('arm-'+side),leg=a.obj.getObjectByName('leg-'+side);
+          const swing=walking ? Math.sin(this.t*.009+p.phase)*(side==='left'?1:-1)*.28 : 0;
+          if(limb)limb.rotation.x=swing;
+          if(leg)leg.rotation.x=-swing*.8;
+        }
+      }
 
       // position + facing
       const dx = p.x - a.last.x, dy = p.y - a.last.y;
@@ -1077,7 +1142,7 @@ export class Office3D extends window.Office {
         : this.plan.terrain ? this.groundHeight(p.x, p.y) : 0;
       // The sit pose's torso leans back past its origin; slide the body
       // forward so the back rests against the backrest instead of in it.
-      const fwd = st.pose === 'sit' ? SIT_FORWARD : 0;
+      const fwd = st.pose === 'sit' && !a.procedural ? SIT_FORWARD : 0;
       let lift = 0;
       if (st.pose !== 'walk' && p.poi && p.poi.float) {
         // zero gravity: drift up and down, slowly turning
@@ -1085,14 +1150,17 @@ export class Office3D extends window.Office {
         lift = 0.45 + Math.sin(k * 0.9) * 0.18;
         a.yaw += dt * 0.35;
       }
-      a.obj.position.set(p.x + Math.sin(a.yaw) * fwd, seatY + lift, p.y + Math.cos(a.yaw) * fwd);
+      const baseY = a.procedural && st.pose==='sit' ? Math.max(0,seatY-.22) : seatY;
+      a.obj.position.set(p.x + Math.sin(a.yaw) * fwd, baseY + lift, p.y + Math.cos(a.yaw) * fwd);
+      a.halo.visible = this.selectedKey===p.key || this.hoverKey===p.key;
+      a.halo.position.set(a.obj.position.x,.016,a.obj.position.z);
       if (a.head) {
         if (st.act === 'nap') { a.head.rotation.x = a.headRest + 0.55; a.napped = true; }
         else if (a.napped) { a.head.rotation.x = a.headRest; a.napped = false; }
       }
       // hand-held props
-      a.cup.visible = st.act === 'coffee' || st.act === 'water' || (st.pose !== 'walk' && p.poi && p.poi.prop === 'cup');
-      a.book.visible = st.act === 'read';
+      a.cup.visible = !a.procedural && (st.act === 'coffee' || st.act === 'water' || (st.pose !== 'walk' && p.poi && p.poi.prop === 'cup'));
+      a.book.visible = !a.procedural && st.act === 'read';
       if (a.armR && (a.cup.visible || a.book.visible)) {
         a.obj.updateMatrixWorld(true);
         const hand = new THREE.Vector3(0, -0.4, 0.15);
@@ -1167,17 +1235,18 @@ export class Office3D extends window.Office {
       this.room.updateMatrixWorld(true);
       this.seats = new Map();
       this.ground = new Map();
-      for (const a of this.actors.values()) this.scene.remove(a.obj, a.prop);
+      for (const a of this.actors.values()) this.scene.remove(a.obj, a.prop, a.halo);
       this.actors.clear();
     }
-    const dt = Math.min(0.05, this.clock.getDelta());
-    const t = this.t / 1000;
+    const dt = this.reducedMotion || this.motionPaused ? 0 : Math.min(0.05, this.clock.getDelta());
+    const t = this.reducedMotion ? 0 : this.t / 1000;
 
-    // lighting follows the time of day
-    const sky = skyNow();
+    // Stable studio lighting keeps mascots legible in either UI appearance.
+    if (!this.plan.scene) this.scene.background.setHex(this.pal.dark ? 0x343433 : 0xdfdfdc);
+    const sky = { sky:0xadd9ee, sun:2.05, amb:.68, night:false };
     this.sun.intensity = sky.sun;
     this.hemi.intensity = sky.amb;
-    if (this.windowMat) {
+    if (this.windowMat && !this.windowMat.isMeshBasicMaterial) {
       this.windowMat.color.setHex(sky.sky);
       this.windowMat.emissive.setHex(sky.sky);
     }
@@ -1212,35 +1281,94 @@ export class Office3D extends window.Office {
     this.controls.update();
     this.gl.render(this.scene, this.camera);
 
-    // overlay: bubbles + name tags, reusing the 2D drawing code
-    this.hit = [];
-    const heads = [];
-    const v = new THREE.Vector3();
-    for (const p of this.people.values()) {
-      const a = this.actors.get(p.key);
-      if (!a) continue;
-      const st = this.stateOf(p);
-      const scale = p.s.subagent ? 0.8 : 1;
-      const base = this.plan.terrain && st.pose !== 'sit' ? this.groundHeight(p.x, p.y) : 0;
-      const floatUp = st.pose !== 'walk' && p.poi && p.poi.float ? 0.45 + Math.sin((this.t / 1000 + p.phase) * 0.9) * 0.18 : 0;
-      const top = (st.pose === 'sit' ? this.seatHeight(p.x, p.y, st.sitZ) + CHAR_HEIGHT * 0.8 * scale : base + CHAR_HEIGHT * scale) + floatUp;
-      v.set(p.x, top + 0.05, p.y).project(this.camera);
-      const sx = (v.x + 1) / 2 * this.cw, sy = (1 - v.y) / 2 * this.ch;
-      const foot = new THREE.Vector3(p.x, 0, p.y).project(this.camera);
-      const fy = (1 - foot.y) / 2 * this.ch;
-      heads.push([p, { x: sx, y: sy, act: st.act }, v.z]);
-      this.hit.push({ key: p.key, x0: sx - 18, x1: sx + 18, y0: sy - 24, y1: fy + 4 });
+    this.drawAgentOverlay(c);
+    if(this._pointerClient && !this._orbiting && !this._pointerDown){
+      const key=this.pickAt(this._pointerClient.x,this._pointerClient.y);
+      if(key!==this.hoverKey){this.hoverKey=key;const p=key&&this.people.get(key);this.onHover(p?p.s:null,key?this.getAnchor(key):null,false);}
     }
-    heads.sort((a, b) => b[2] - a[2]);
-    for (const [p, at] of heads) this.bubble(p, at);
-    if (this.offDuty > 0) {
-      c.font = '600 11px ui-sans-serif, system-ui, -apple-system, "PingFang TC", sans-serif';
-      c.textAlign = 'left';
-      c.fillStyle = this.pal.text;
-      c.globalAlpha = 0.65;
-      c.fillText(`+${this.offDuty} ${this.offDutyLabel}`, 12, this.ch - 12);
-      c.globalAlpha = 1;
+  }
+
+  drawAgentOverlay(c) {
+    this.hit=[];this.labels=[];this.anchors.clear();this.pickTargets=[];
+    const projected=[];
+    const rect=this.canvas.getBoundingClientRect();
+    const maxX=this.cw-this.inset();
+    for(const p of this.people.values()){
+      const a=this.actors.get(p.key);if(!a)continue;
+      a.obj.updateMatrixWorld(true);
+      a.bounds.setFromObject(a.obj);
+      if(a.labelAnchor)a.labelAnchor.getWorldPosition(a.anchor);
+      else {a.bounds.getCenter(a.anchor);a.anchor.y=a.bounds.max.y+.1;}
+      const v=a.anchor.clone().project(this.camera);
+      if(v.z < -1 || v.z > 1)continue;
+      const x=(v.x+1)*.5*this.cw,y=(1-v.y)*.5*this.ch;
+      if(x<0||x>maxX||y<0||y>this.ch)continue;
+      this.anchors.set(p.key,{x:x+rect.left,y:y+rect.top,localX:x,localY:y,depth:v.z});
+      a.obj.traverse(o=>{if(o.isMesh)this.pickTargets.push(o);});
+      const hot=this.hoverKey===p.key||this.selectedKey===p.key;
+      const attention=p.s.status==='waiting'||p.s.status==='error';
+      projected.push({p,a,x,y,z:v.z,hot,attention});
     }
+    const occupied=[];
+    // Priority first for collision layout; later draw nearest on top.
+    projected.sort((a,b)=>Number(b.hot)-Number(a.hot)||Number(b.attention)-Number(a.attention)||a.z-b.z);
+    const accepted=[];
+    for(const q of projected){
+      const {p,x,y,hot,attention}=q;
+      c.font='600 11px system-ui, sans-serif';
+      let text=this.label(p.s)||p.s.agent;
+      while(c.measureText(text).width>144&&text.length>2)text=text.slice(0,-2)+'…';
+      const show=hot||attention||(!p.s.subagent&&this.camera.zoom>1.35);
+      const w=show?Math.max(56,c.measureText(text).width+30):18,h=show?24:18;
+      const r={x0:x-w/2,x1:x+w/2,y0:y-h-6,y1:y-6,key:p.key,z:q.z};
+      const collide=occupied.some(o=>r.x0<o.x1+4&&r.x1>o.x0-4&&r.y0<o.y1+3&&r.y1>o.y0-3);
+      if(collide&&!hot)continue;
+      if(r.x0<4||r.x1>maxX-4||r.y0<4)continue;
+      occupied.push(r);accepted.push({...q,r,text,show});
+    }
+    accepted.sort((a,b)=>b.z-a.z);
+    for(const {p,r,text,show,hot} of accepted){
+      const tone={thinking:'#8b79a2',tool:'#687b8b',typing:'#638675',waiting:'#b18543',error:'#bd665a',done:'#71866a',unknown:'#92928c',idle:'#92928c'}[p.s.status]||'#92928c';
+      c.fillStyle=hot?'#373936':'rgba(247,247,243,.96)';
+      c.beginPath();c.roundRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0,8);c.fill();
+      c.strokeStyle=hot?'#a9ada4':'rgba(60,63,58,.22)';c.lineWidth=hot?1.5:1;c.stroke();
+      c.fillStyle=tone;c.beginPath();c.arc(r.x0+(show?12:9),(r.y0+r.y1)/2,3.5,0,Math.PI*2);c.fill();
+      if(show){c.fillStyle=hot?'#f7f7f3':'#363a35';c.textAlign='left';c.textBaseline='middle';c.font='600 11px system-ui,sans-serif';c.fillText(text,r.x0+22,(r.y0+r.y1)/2+.5);}
+      this.labels.push(r);this.hit.push(r);
+    }
+  }
+
+  getAnchor(key) { return this.anchors.get(key)||null; }
+
+  focusAgent(key) {
+    const a=this.actors.get(key);if(!a)return false;
+    this.selectedKey=key;this.focusedKey=key;
+    const target=a.obj.position.clone();target.y+=.65;
+    const yaw=a.obj.rotation.y+.45;
+    this.controls.target.copy(target);
+    this.camera.position.set(target.x+Math.sin(yaw)*25,target.y+18,target.z+Math.cos(yaw)*25);
+    this.camera.zoom=2.7;this.camera.lookAt(target);this.camera.updateMatrixWorld(true);this.camera.updateProjectionMatrix();
+    const projected=target.clone().project(this.camera),actualX=(projected.x+1)*.5*this.cw,actualY=(1-projected.y)*.5*this.ch;
+    const desiredX=(this.cw-this.inset())*.5,desiredY=this.ch*.5;
+    const right=new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld,0),up=new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld,1);
+    const shift=right.multiplyScalar((actualX-desiredX)*(this.camera.right-this.camera.left)/this.camera.zoom/this.cw).add(up.multiplyScalar((desiredY-actualY)*(this.camera.top-this.camera.bottom)/this.camera.zoom/this.ch));
+    this.camera.position.add(shift);this.controls.target.add(shift);this.controls.update();return true;
+  }
+
+  resetView() { this.selectedKey=null;this.focusedKey=null;this.fitCamera3D(true);this.controls.update(); }
+
+  pickAt(clientX,clientY) {
+    const rect=this.canvas.getBoundingClientRect(),x=clientX-rect.left,y=clientY-rect.top;
+    if(x<0||y<0||x>this.cw-this.inset()||y>this.ch)return null;
+    for(let i=this.labels.length-1;i>=0;i--){const l=this.labels[i];if(x>=l.x0&&x<=l.x1&&y>=l.y0&&y<=l.y1)return l.key;}
+    this.pointerNDC.set(x/this.cw*2-1,1-y/this.ch*2);this.raycaster.setFromCamera(this.pointerNDC,this.camera);
+    const hits=this.raycaster.intersectObjects(this.pickTargets,false);
+    if(!hits.length)return null;
+    const obstacle=this.raycaster.intersectObject(this.room,true).find(h=>{
+      const m=h.object.material;return m&&!m.transparent&&h.object.visible;
+    });
+    if(obstacle && obstacle.distance<hits[0].distance-.035)return null;
+    return hits[0].object.userData.sessionKey;
   }
 
   updateBall() {
@@ -1256,8 +1384,15 @@ export class Office3D extends window.Office {
   }
 
   pointer(e, click) {
-    // Let OrbitControls drags through without flickering the tooltip.
-    if (e.buttons && !click) return;
-    super.pointer(e, click);
+    if(!this.raycaster)return;
+    this._pointerClient={x:e.clientX,y:e.clientY};
+    if(e.buttons||this._orbiting){this.onHover(null);return;}
+    if(click&&this._dragged){this._dragged=false;return;}
+    const key=this.pickAt(e.clientX,e.clientY);
+    this.canvas.style.cursor=key?'pointer':'grab';
+    this.hoverKey=key;
+    const p=key&&this.people.get(key);
+    if(click&&key)this.selectedKey=key;
+    this.onHover(p?p.s:null,key?(this.getAnchor(key)||{x:e.clientX,y:e.clientY}):null,!!click);
   }
 }

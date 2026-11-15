@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const {readDotSnapshot} = require('./dot-snapshot');
 const http = require('http');
 const { guessFromPrompts } = require('./lang');
 const path = require('path');
@@ -8,12 +9,13 @@ const path = require('path');
 const PUBLIC = path.join(__dirname, '..', 'public');
 const STATIC = {
   '/': ['index.html', 'text/html; charset=utf-8'],
+  '/bureau-tools.js': ['bureau-tools.js', 'text/javascript; charset=utf-8'],
   '/office.js': ['office.js', 'text/javascript; charset=utf-8'],
   '/office3d.js': ['office3d.js', 'text/javascript; charset=utf-8'],
   '/i18n.js': ['i18n.js', 'text/javascript; charset=utf-8'],
   '/popout.js': ['popout.js', 'text/javascript; charset=utf-8'],
 };
-const TYPES = { '.js': 'text/javascript; charset=utf-8', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const TYPES = { '.ttf': 'font/ttf', '.js': 'text/javascript; charset=utf-8', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json' };
 // 3D models, served as-is (3D view only).
 const MOUNTS = { '/assets/': path.join(__dirname, '..', 'assets') };
 const scenes = require('./scenes');
@@ -52,7 +54,8 @@ function view(s, now, { privacy }) {
   const out = {
     key: `${s.agent}:${s.id}`,
     agent: s.agent,
-    ...(s.source === 'magpie' ? { source: s.source, agentName: s.agentName } : {}),
+    ...(s.source ? { source: s.source, agentName: s.agentName } : {}),
+    ...(s.source === 'dot-snapshot' ? {observedAt:s.observedAt,snapshotStale:s.snapshotStale,lastObservedStatus:s.lastObservedStatus} : {}),
     id: s.id,
     sessionId: s.sessionId || null,
     parentId: s.parentId,
@@ -114,10 +117,11 @@ function summary(sessions, now) {
 
 function snapshot(watcher, opts) {
   const now = Date.now();
-  const raw = watcher.sessions();
+  const dot = opts.dotSnapshot && !opts.demo ? readDotSnapshot() : {sessions:[],connection:null};
+  const raw = watcher.sessions().concat(dot.sessions);
   const sessions = raw.map((s) => view(s, now, opts));
   sessions.sort((a, b) => (b.lastEventAt || 0) - (a.lastEventAt || 0));
-  return { now, lang: opts.demo ? null : promptLanguage(raw), sessions, summary: summary(sessions, now) };
+  return { now, dotConnection:dot.connection, lang: opts.demo ? null : promptLanguage(raw), sessions, summary: summary(sessions, now) };
 }
 
 function createServer(watcher, opts, { onShutdown, onRestart } = {}) {

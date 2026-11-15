@@ -71,7 +71,7 @@ async function drawnLogos(target) {
   const keys = Object.keys(translations.window.I18N.en).sort();
   for (const lang of Object.values(translations.window.I18N)) assert.deepEqual(Object.keys(lang).sort(), keys);
   check('all nine languages provide every UI string');
-  browser=await chromium.launch({headless:process.env.WMAD_HEADED !== '1',channel:'chrome',ignoreDefaultArgs:['--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding'],args:['--window-size=1280,960']});
+  browser=await chromium.launch({headless:process.env.WMAD_HEADED !== '1',...(process.env.WMAD_CHROMIUM ? {executablePath:process.env.WMAD_CHROMIUM} : {channel:'chrome'}),ignoreDefaultArgs:['--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding'],args:['--window-size=1280,960']});
   const context=await browser.newContext({viewport:{width:1280,height:960},locale:'en-US'});
   await context.addInitScript(sessions=>{
    window.EventSource=class {constructor(){window.__events=this;setTimeout(()=>{if(!this.closed)this.onmessage?.({data:JSON.stringify({now:Date.now(),sessions})})},0)}close(){this.closed=true}};

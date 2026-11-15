@@ -1,10 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>What's my agent doing</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👀</text></svg>">
+<meta name="theme-color" content="#eeedea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#282827" media="(prefers-color-scheme: dark)">
+<title>Ubi Bureau</title>
+<link rel="icon" href="/assets/bureau.png">
 <style>
   :root {
     --bg: #f6f6f3;
@@ -378,15 +380,58 @@
   body.pip section { margin-top: 12px; }
   body.pip section:first-child { margin-top: 0; }
   body.pip .grid { grid-template-columns: 1fr; }
+
+/* Ubi Bureau. Neutral surfaces; colour belongs to the agents and real alerts. */
+:root{color-scheme:light;--bg:#dfdfdc;--panel:#f4f3f0;--ink:#292927;--muted:#666660;--faint:#76766f;--line:#d8d7d2;--tool:#62645f;--thinking:#72687c;--typing:#52705a;--waiting:#956d28;--done:#55705b;--error:#b45146;--idle:#76766f;--surface-raised:#faf9f6;--surface-inset:#e7e6e2;--selected:#dcdcd6;--hover:#e6e5e0;--focus:#656660;--shadow:0 1px 3px #2929270c}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#343433;--panel:#282827;--ink:#eeede8;--muted:#b5b4ad;--faint:#a0a098;--line:#42423e;--tool:#bfc1b8;--thinking:#b7acbf;--typing:#a2b6a4;--waiting:#c8ac71;--done:#a2b6a4;--error:#e29c90;--idle:#a0a098;--surface-raised:#343432;--surface-inset:#222221;--selected:#454540;--hover:#383835;--focus:#c4c5bd;--shadow:0 1px 3px #0003}}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Adwaita Sans','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}body.full header{min-height:58px;padding:10px 18px;gap:12px 22px}body.full h1{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:650;letter-spacing:-.018em}body.full h1 img{flex:none}.summary{gap:14px}.chip{font-size:12px}.chip b{font-size:13px}.btn,details.menu>summary{min-height:34px;border-radius:8px}#qualSeg,#viewSeg,#langMenu,#agentLegend,#legend,.ver{display:none!important}body.full .side{width:320px;background:var(--panel)}.side-head{padding:16px 18px;height:57px}.side-group{text-transform:none;letter-spacing:0;font-size:12px;margin:14px 10px 6px;color:var(--muted)}.side-group:first-child{font-size:13px;font-weight:700;color:var(--ink);margin-top:8px}.srow{min-height:61px;padding:11px 10px;border-radius:9px;grid-template-columns:24px minmax(0,1fr) auto;gap:4px 9px}.srow .agent-logo{width:23px;height:23px}.srow .nm,.srow.sub .nm{font-size:13px;font-weight:600;color:var(--ink)}.srow .tm{font-size:10px;color:var(--muted)}.srow .st{font-size:11px}.srow .st b{font-weight:400;white-space:nowrap}.srow .st span{display:none}.srow:hover,.srow.is-hover{background:var(--hover)}.srow:focus-visible{outline:2px solid var(--focus);outline-offset:-2px;background:var(--selected)}.side-body{padding:3px 10px 14px}.roster-tools{padding:4px 18px 10px;border-bottom:1px solid var(--line)}#agentSearch{width:100%;height:35px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:12px}.roster-filters{display:flex;gap:4px;flex-wrap:wrap;margin-top:9px}.roster-filters button{font:inherit;font-size:11px;color:var(--muted);padding:5px 7px;border:0;border-radius:6px;background:transparent;cursor:pointer}.roster-filters button[aria-pressed=true]{color:var(--ink);background:var(--line)}.source-note{flex:none;padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.5;background:var(--panel)}.tip{width:272px;z-index:30;max-width:calc(100vw - 24px)}.agent-peek{padding:15px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px #24242126,0 1px 3px #2424211a}.peek-head{display:flex;align-items:center;gap:10px}.peek-head .agent-logo{width:26px;height:26px;flex:none}.peek-head strong{font-size:13px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.peek-status{display:flex;align-items:center;gap:7px;margin:11px 0 13px 36px;font-size:12px;color:var(--s)}.peek-status i{width:6px;height:6px;background:currentColor;border-radius:50%;flex:none}.peek-meta{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}.peek-meta span:last-child{white-space:nowrap}.detail-source{color:var(--muted);font-size:12px;margin:10px 6px}.focus-agent{margin:2px 6px 15px}.dstatus{font-size:13px;line-height:1.5}.side-sec{text-transform:none;letter-spacing:0}.conn{z-index:35}.office-loader{background:var(--bg);text-align:center;line-height:2}#loaderText .btn{margin-top:12px}.office .spin{border-color:var(--line);border-top-color:var(--tool)}.agent-logo{object-fit:contain}.side-pane{transition-duration:.22s}.side.opening .srow,.side.entering #detailBody>*{animation:none}.srow .nm{line-height:1.4}.roster-filters button:focus-visible{outline:2px solid var(--focus)}
+@media(max-width:1100px){body.full header{gap:8px 14px}.summary{gap:10px}.chip{font-size:11px}body.full .controls{gap:6px}#todayMenu{display:none}}
+@media(max-width:760px){body.full .side{width:min(320px,90vw)}body.full h1{font-size:17px}body.full header{padding:8px 12px}body.full .summary{order:3;width:100%}.source-note{font-size:11px}#sceneMenu{display:none}}
+
+/* Toolbar, sidebar and popovers use one native-style surface hierarchy. */
+body.full header{background:#eeedea;border-bottom:1px solid #d1d0cb;min-height:58px;gap:12px 18px}
+body.full .side{background:var(--panel);border-left-color:var(--line)}
+.controls>.btn,details.menu>summary.btn{border-color:transparent;background:transparent;box-shadow:none;color:var(--ink);padding-inline:10px;border-radius:7px;font-size:12px;font-weight:500}
+.controls>.btn:hover,details.menu>summary.btn:hover,details.menu[open]>summary.btn{background:var(--hover);border-color:transparent}
+.controls>.btn:active,details.menu>summary.btn:active{background:var(--selected)}
+#sceneIco{display:none}.toolbar-space{min-width:12px}
+.ui-ico{stroke-width:1.65}.settings>summary::after{width:5px;height:5px;border-width:1.4px}
+.settings-panel{border:1px solid var(--line);background:var(--surface-raised);border-radius:10px;box-shadow:0 8px 24px #24242125,0 1px 3px #24242115}
+.settings-panel .setting-label{font-size:11px;letter-spacing:0;font-weight:600;color:var(--muted)}
+.pick-list button{border-radius:6px;font-size:12px}.pick-list button:hover{background:var(--hover)}
+.side-head{height:54px;padding:14px 18px;font-size:13px;border-bottom:0}.side-head b{font-weight:650}.side-count{font-size:11px}
+.icon-btn{border-color:transparent;background:transparent;border-radius:6px;color:var(--muted)}.icon-btn:hover{background:var(--hover);border-color:transparent;color:var(--ink)}
+.roster-tools{padding-top:2px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+#agentSearch{background:var(--surface-inset);border:1px solid transparent;border-radius:7px;height:33px;font-size:12px;box-shadow:inset 0 1px 1px #24242108;color:var(--ink)}
+#agentSearch::placeholder{color:var(--muted);opacity:1}#agentSearch:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.roster-filters{display:grid;grid-template-columns:.65fr 1.25fr 1fr 1fr;gap:2px;padding:3px;margin-top:10px;border-radius:7px;background:var(--surface-inset)}
+.roster-filters button{padding:5px 3px;white-space:nowrap;font-size:10.5px;line-height:1.35;border-radius:5px;color:var(--muted)}
+.roster-filters button:hover{color:var(--ink);background:var(--hover)}
+.roster-filters button[aria-pressed=true]{background:var(--surface-raised);color:var(--ink);font-weight:550;box-shadow:0 1px 3px #24242120}
+.side-group{margin:15px 10px 7px;font-size:11px;font-weight:600;color:var(--muted)}
+.side-group:first-child{font-size:12px;font-weight:650}.srow{min-height:60px;border-radius:7px;padding:10px;gap:4px 9px}
+.srow .nm,.srow.sub .nm{font-size:13px;font-weight:550;letter-spacing:.002em}.srow .tm{font-size:10.5px;font-weight:400}
+.srow .agent-logo{width:22px;height:22px}.srow .st{font-size:11px}.srow .st i{width:6px;height:6px}
+.srow.is-hover,.srow:hover{background:var(--hover)}.srow:focus-visible{background:var(--selected);outline:2px solid var(--focus);outline-offset:-2px}
+.source-note{border-top-color:var(--line);font-size:10.5px;line-height:1.5;color:var(--muted);padding:11px 18px}
+.agent-peek{background:var(--surface-raised);border-radius:10px;border-color:var(--line);padding:14px;box-shadow:0 10px 26px #24242126,0 1px 3px #24242118}
+.peek-head strong{font-size:13px;font-weight:600;letter-spacing:0}.peek-status{font-size:12px}.peek-meta{font-size:10.5px;border-top-color:var(--line)}
+.detail-source{font-size:12px}.focus-agent{font-size:12px;background:var(--surface-raised);border-color:var(--line);border-radius:7px;box-shadow:0 1px 2px #2424210c}
+.msg{border-radius:8px}.msg.user{background:var(--surface-inset);border-color:var(--line)}.dmeta{font-size:12px}.dmeta dd{color:var(--ink)}
+button,summary,input{touch-action:manipulation}button:focus-visible,summary:focus-visible,input:focus-visible{outline-color:var(--focus)}
+@media(prefers-color-scheme:dark){body.full header{background:#2d2d2b;border-bottom-color:#41413d}.settings-panel,.agent-peek{box-shadow:0 10px 28px #0005,0 1px 2px #0004}.roster-filters button[aria-pressed=true]{background:#55554f;box-shadow:0 1px 3px #0003}.focus-agent{box-shadow:0 1px 2px #0003}}
+@media(max-width:1100px){body.full header{gap:8px 12px}body.full h1{font-size:16px}.controls>.btn,details.menu>summary.btn{padding-inline:8px}.summary{gap:10px}}
+
+@font-face{font-family:Pixelify;src:url(/assets/fonts/PixelifySans.ttf) format("truetype");font-display:swap}body.full h1 span{font-family:Pixelify,monospace;font-size:24px;font-weight:500;letter-spacing:.01em}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>👀 <span data-t="title"></span></h1>
+    <h1><img src="/assets/bureau.png" width="25" height="25" alt=""><span translate="no">Ubi Bureau</span></h1>
     <div class="summary" id="summary"></div>
     <button class="newver" id="newVer" hidden></button>
-    <div class="controls">
+    <div class="controls"><button class="btn" id="overviewBtn" title="Вернуться к общему виду">Общий вид</button>
       <div class="seg" id="viewSeg">
         <button data-v="office" data-t="office"></button>
         <button data-v="list" data-t="list"></button>
@@ -437,6 +482,7 @@
       </details>
     </div>
   </header>
+
   <p class="pip-error" id="pipError" role="alert" hidden></p>
   <div class="pip-preview" id="pipPreview" hidden>
     <p data-t="pipVideoHint"></p>
@@ -452,32 +498,34 @@
   <aside class="side" id="side" aria-label="Agents">
     <div class="side-pane" id="sideList">
       <div class="side-head"><b id="sideTitle"></b><span class="side-count" id="sideCount"></span>
-        <button class="icon-btn" id="sideHide"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L21 12l-6.5 6.5M3 12h17"/></svg></button></div>
-      <div class="side-body" id="sideRows"></div>
+        <button class="icon-btn" id="sideHide" aria-label="Скрыть команду"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L21 12l-6.5 6.5M3 12h17"/></svg></button></div>
+      <div class="roster-tools"><input id="agentSearch" name="agent-search" type="search" placeholder="Найти агента…" aria-label="Поиск по имени агента" autocomplete="off"><div class="roster-filters" role="group" aria-label="Статусы"><button data-filter="all" aria-pressed="true">Все</button><button data-filter="attention" aria-pressed="false">Нужен ответ</button><button data-filter="working" aria-pressed="false">Работают</button><button data-filter="unknown" aria-pressed="false">Нет данных</button></div></div><div class="side-body" id="sideRows"></div><div id="dotConnection" class="source-note" role="status"></div>
     </div>
     <div class="side-pane" id="sideDetail" inert>
-      <div class="side-head"><button class="icon-btn" id="sideBack"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button><b id="detailTitle"></b></div>
+      <div class="side-head"><button class="icon-btn" id="sideBack" aria-label="Назад к команде"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button><b id="detailTitle"></b></div>
       <div class="side-body" id="detailBody"></div>
     </div>
   </aside>
-  <button class="side-tab" id="sideTab"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L3 12l6.5 6.5M21 12H4"/></svg><span id="sideTabCount"></span></button>
+  <button class="side-tab" id="sideTab" aria-label="Показать команду"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L3 12l6.5 6.5M21 12H4"/></svg><span id="sideTabCount"></span></button>
   <main id="main"></main>
 </div>
 <div class="conn" id="conn" data-t="disconnected"></div>
-<div class="tip" id="tip"></div>
+<div class="tip" id="tip" role="tooltip"></div>
 <div class="ver" id="ver"></div>
 <script src="/i18n.js"></script>
 <script src="/office.js"></script>
 <script src="/popout.js"></script>
 
 <script>
+I18N.ru = {...I18N.en, html:'ru', langName:'Русский', title:'Ubi Bureau', settings:'Настройки', scene:'Сцена', agents:'Источники', language:'Язык', showAgent:'Подписи агентов', pip:'Отдельное окно', pipClose:'Закрыть отдельное окно', pipOn:'Офис открыт в отдельном окне.', pipStop:'Закрыть просмотр', pipFailed:'Не удалось открыть окно.', pipQuiet:'Нет агентов, которым требуется внимание.', office:'Офис', list:'Список', wentHome:'вне офиса', loading3d:'Открываем офис…', failed3d:'Не удалось загрузить 3D-сцену.', all:'Все источники', subagents:'Показывать субагентов', showIdle:'Показывать неактивных', notify:'Уведомления', notifyBlocked:'Уведомления не разрешены.', sound:'Звук', stuck:m=>`Нет новых событий ${m} мин`, today:'Сегодня', turnsL:'ходов', tokensL:'токенов', agentsL:'агентов', context:'Контекст', topProjects:'Активные проекты', summaryNote:'По локальным журналам с полуночи. Большие журналы могут быть прочитаны частично.', noUsage:'Сегодня пока нет записей.', agentsTitle:'Команда', recent:'Последние сообщения', noMessages:'В журнале нет сообщений.', back:'Назад', hidePanel:'Скрыть команду', showPanel:'Показать команду', modelL:'Модель', folderL:'Папка', privateNote:'Содержимое сообщений скрыто.', loadingMsgs:'Загружаем…', disconnected:'Связь прервана. Подключаемся…', needsYou:'Нужен ответ', working:'Работают', finished:'Завершены', idle:'Неактивны', unknown:'Нет свежих данных', thinking:'Обдумывает', tool:'Выполняет действие', typing:'Пишет ответ', waiting:'Нужен ответ', done:'Завершён', interrupted:'Прерван', error:'Ошибка', copy:'Копировать команду', copied:'Скопировано', sub:'Субагент', auto:'Авто', empty:'Пока нет доступных сессий. Новые локальные агенты появятся здесь автоматически.', doneNote:p=>`${p}: завершено`};
+for(const [key,label,src] of [['dot','Dot','/assets/agents/dot.svg'],['codex','Codex','/assets/agents/codex.svg']]) { const b=OFFICE_AGENT_BADGES[key]; if(b){b.label=label;b.logo=src;b.image.src=src;} }
 // Language: your pick in the 🌐 menu, else the language of your prompts
 // (the server guesses it), else the browser's, else English.
 let L = I18N.en;
 let langCode = 'en';
 let rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' });
 function chooseLang(serverGuess) {
-  const pick = store.get('lang', 'auto');
+  const pick = store.get('lang', 'ru');
   if (pick !== 'auto' && I18N[pick]) return pick;
   if (serverGuess && I18N[serverGuess]) return serverGuess;
   return i18nFromBrowser(navigator.languages || [navigator.language]) || 'en';
@@ -503,12 +551,12 @@ function applyLang(code) {
 
 const store = (() => {
   const fallback = new Map();
-  const get = (k, d) => { try { const v = localStorage.getItem('wmad.' + k); return v == null ? d : JSON.parse(v); } catch { return fallback.has(k) ? fallback.get(k) : d; } };
-  const set = (k, v) => { fallback.set(k, v); try { localStorage.setItem('wmad.' + k, JSON.stringify(v)); } catch {} };
+  const get = (k, d) => { try { const v = localStorage.getItem('bureau.' + k); return v == null ? d : JSON.parse(v); } catch { return fallback.has(k) ? fallback.get(k) : d; } };
+  const set = (k, v) => { fallback.set(k, v); try { localStorage.setItem('bureau.' + k, JSON.stringify(v)); } catch {} };
   return { get, set };
 })();
 
-const PREF_DEFAULTS = { view: 'office', quality: 'mid', scene: 'office', agents: [], showSub: false, showIdle: false, showAgent: true, sound: false, notify: true, side: true, lang: 'auto' };
+const PREF_DEFAULTS = { view: 'office', quality: 'high', scene: 'office', agents: [], showSub: false, showIdle: false, showAgent: true, sound: false, notify: true, side: true, lang: 'ru' };
 function validAgentId(v) {
   return typeof v === 'string' && v !== 'all' && /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(v) && !Object.hasOwn(Object.prototype, v);
 }
@@ -534,12 +582,14 @@ function readPreferences() {
     return [k, validPreference(k, v) ? v : d];
   }));
 }
+const NATIVE = new URLSearchParams(location.search).get('native') === '1';
 const PIP = new URLSearchParams(location.search).get('pip') === '1';
 if (PIP) document.body.classList.add('pip');
 
 // ?view=office&quality=high&scene=pirate (what `--scene` opens) sets the prefs.
 {
   const q = new URLSearchParams(location.search);
+  if(q.get('dotOffice') === '1'){store.set('showSub',true);store.set('showIdle',true);}
   if (PIP) {
     try {
       for (const [k, v] of Object.entries(JSON.parse(q.get('prefs')) || {})) if (validPreference(k, v)) store.set(k, v);
@@ -551,6 +601,7 @@ if (PIP) document.body.classList.add('pip');
 
 const state = {
   ...readPreferences(),
+  quality:'high', showSub:true, showIdle:true, search:'', statusFilter:'all',
   // The dashboard is always the full-window office with the agent panel; the pop-out keeps its compact views.
   full: !PIP,
   scenes: [],
@@ -569,6 +620,7 @@ const GROUPS = [
   { key: 'working', match: (s) => ACTIVE.has(s) },
   { key: 'finished', match: (s) => s === 'done' || s === 'interrupted' },
   { key: 'idle', match: (s) => s === 'idle' },
+  { key: 'unknown', match: (s) => s === 'unknown' },
 ];
 
 function esc(s) {
@@ -603,6 +655,7 @@ function timeLabel(s, now) {
 // is expanded, so a folder or session name can't run anything when pasted.
 const shq = (v) => `'${String(v).replace(/'/g, `'\\''`)}'`;
 function resumeCmd(s) {
+  if(s.agent === "dot") return null;
   if (s.source === 'magpie') return '';
   if (s.agent === 'omp') return s.resumeCommand || '';
   const cd = s.cwd ? `cd ${shq(s.cwd)} && ` : '';
@@ -677,7 +730,7 @@ function card(s, now) {
       <span class="time" data-time="${esc(s.key)}">${esc(timeLabel(s, now))}</span>
     </div>
     ${title}
-    <div class="status"><span class="ind"><i></i><i></i><i></i></span><span class="lbl">${esc(L[s.status] || s.status)}</span>${act}${stuck}</div>
+    <div class="status"><span class="ind"><i></i><i></i><i></i></span><span class="lbl">${esc(statusLabel(s))}</span>${act}${stuck}</div>
     ${err}${q}${r}${ctx}
     <div class="foot"><span class="model">${esc((s.model || '') + sub)}</span>${resumeCmd(s) ? `<button class="copy" data-copy="${esc(resumeCmd(s))}">${L.copy}</button>` : ''}</div>
   </div>`;
@@ -688,7 +741,9 @@ function visible() {
   return state.data.sessions.filter((s) =>
     matchAgent(s) &&
     (state.showSub || !s.subagent) &&
-    (state.showIdle || s.status !== 'idle'));
+    (state.showIdle || s.status !== 'idle') &&
+    (!state.search || agentNameFor(s).toLocaleLowerCase().includes(state.search)) &&
+    (state.statusFilter === 'all' || (state.statusFilter === 'working' ? ACTIVE.has(s.status) : state.statusFilter === 'attention' ? ['waiting','error'].includes(s.status) : s.status === 'unknown' || s.snapshotStale)));
 }
 
 function render() {
@@ -697,17 +752,17 @@ function render() {
   const all = state.data.sessions.filter((s) => matchAgent(s) && (state.showSub || !s.subagent));
 
   const count = (f) => all.filter((s) => f(s.status)).length;
-  document.getElementById('summary').innerHTML = GROUPS.slice(0, 3).map((g) => {
-    const n = count(g.match);
-    const color = g.key === 'needsYou' ? 'var(--waiting)' : g.key === 'working' ? 'var(--tool)' : 'var(--done)';
-    return `<span class="chip"><span class="dot" style="color:${color}"></span>${L[g.key]} <b>${n}</b></span>`;
+  document.getElementById('summary').innerHTML = GROUPS.filter((g,i)=>i<3 || (g.key==='unknown' && count(g.match)>0)).map((g) => {
+    const n = count(g.match); if(!n)return '';
+    const color = g.key === 'needsYou' ? 'var(--waiting)' : g.key === 'working' ? 'var(--tool)' : g.key === 'unknown' ? 'var(--faint)' : 'var(--done)';
+    return `<span class="chip"><span class="dot" style="color:${color}"></span>${g.key === 'unknown' ? 'Нет данных' : L[g.key]} <b>${n}</b></span>`;
   }).join('');
 
   renderToday();
   renderSide();
   const working = count((s) => ACTIVE.has(s));
   const needs = count(GROUPS[0].match);
-  document.title = (needs ? `(${needs}!) ` : working ? `(${working}) ` : '') + L.title;
+  document.title = (needs ? `(${needs}!) ` : working ? `(${working}) ` : '') + 'Ubi Bureau';
 
   const main = document.getElementById('main');
   const officeMode = state.view === 'office' || state.full;
@@ -763,7 +818,16 @@ function tickTimes() {
   });
 }
 
+function statusLabel(s) {
+  if (s.source !== 'dot-snapshot') return L[s.status] || s.status;
+  if (s.snapshotStale || s.status === 'unknown') return 'Нет свежих данных';
+  return {running:'Работает',completed:'Завершён',idle:'Неактивен',waiting:'Нужен ответ',error:'Ошибка',interrupted:'Прерван'}[s.lastObservedStatus] || 'Снимок';
+}
 function onData(data) {
+  const dc=data.dotConnection, el=document.getElementById('dotConnection');
+  el.textContent = !dc?.available ? 'Dot: нет снимка. Локальные сессии обновляются автоматически.' :
+    `Dot: снимок ${new Date(dc.observedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}. ${dc.stale ? 'Нет свежих данных.' : 'Не непрерывная трансляция.'} Локальные сессии: журналы.`;
+
   for (const s of data.sessions) {
     if (!validAgentId(s.agent)) continue;
     if (!Object.hasOwn(AGENT_NAME, s.agent)) AGENT_NAME[s.agent] = s.agentName || s.agent;
@@ -904,37 +968,39 @@ document.addEventListener('click', (e) => {
 // ---- office view
 const tip = document.getElementById('tip');
 let tipKey = null, tipPinned = false, tipAt = { x: 0, y: 0 };
+function agentNameFor(s) { return s.title || s.project || (s.agent === 'dot' ? "vas'" : AGENT_NAME[s.agent]) || s.agent; }
+function sourceFor(s) { return `${s.agent === 'dot' ? 'Dot' : AGENT_NAME[s.agent] || s.agent}${s.subagent ? ' · Субагент' : s.agent === 'dot' ? ' · Координатор' : ''}`; }
 function placeTip() {
+  if (!tipKey) return;
+  const anchor = office?.getAnchor?.(tipKey) || tipAt;
   const r = tip.getBoundingClientRect();
-  let x = tipAt.x + 16, y = tipAt.y + 16;
-  if (x + r.width > innerWidth - 8) x = tipAt.x - r.width - 16;
-  if (y + r.height > innerHeight - 8) y = Math.max(8, innerHeight - r.height - 8);
-  tip.style.left = Math.max(8, x) + 'px';
-  tip.style.top = y + 'px';
+  const canvas = document.getElementById('office').getBoundingClientRect();
+  const right = state.side && innerWidth > 760 ? sideEl.getBoundingClientRect().left : innerWidth;
+  const left = Math.max(12,canvas.left+12), top = Math.max(12,canvas.top+12);
+  let x=anchor.x+18, y=anchor.y-r.height-16;
+  if(x+r.width>right-12)x=anchor.x-r.width-18;
+  x=Math.max(left,Math.min(x,right-r.width-12));
+  y=Math.max(top,Math.min(y,innerHeight-r.height-12));
+  tip.style.left=x+'px';tip.style.top=y+'px';
 }
 function refreshTip() {
   if (!tipKey) return;
-  const s = state.data.sessions.find((x) => x.key === tipKey);
-  if (!s) return hideTip();
-  tip.innerHTML = card(s, Date.now() - state.skew);
+  const s=state.data.sessions.find(x=>x.key===tipKey);if(!s)return hideTip();
+  const when=s.source==='dot-snapshot' ? `Снимок ${hhmm(s.observedAt)}` : timeLabel(s,Date.now()-state.skew);
+  tip.dataset.key=s.key;
+  tip.innerHTML=`<div class="agent-peek"><div class="peek-head">${agentLogo(s.agent)}<strong>${esc(agentNameFor(s))}</strong></div><div class="peek-status" style="--s:${statusColor(s.status)}"><i></i>${esc(statusLabel(s))}</div><div class="peek-meta"><span>${esc(sourceFor(s))}</span><span>${esc(when)}</span></div></div>`;
   placeTip();
 }
-function hideTip() { tipKey = null; tipPinned = false; tip.style.display = 'none'; tip.classList.remove('pinned'); }
-const officeOpts = {
-  compact: PIP,
-  onFrame: (renderer) => popout?.drawPreview(renderer),
-  label: (s) => (s.agent === 'omp' && s.subagent && s.title) || s.project || AGENT_NAME[s.agent] || s.agent,
-  onHover(s, at, click) {
-    // In full screen a click opens the agent in the side panel instead of pinning a card.
-    if (click && state.full && s) { hideTip(); openDetail(s.key); return; }
-    if (click) {
-      if (!s) return hideTip();
-      tipPinned = true; tip.classList.add('pinned');
-    } else if (tipPinned) return;
-    if (!s) { if (!tipPinned) hideTip(); return; }
-    tipKey = s.key; tipAt = at;
-    tip.style.display = 'block';
-    refreshTip();
+function hideTip(){tipKey=null;tipPinned=false;tip.style.display='none';tip.classList.remove('pinned');delete tip.dataset.key;}
+const officeOpts={
+  compact:PIP,
+  onFrame:(renderer)=>{popout?.drawPreview(renderer);if(tipKey)placeTip();},
+  label:agentNameFor,
+  onHover(s,at,click){
+    if(click&&s){hideTip();openDetail(s.key);return;}
+    if(!s){hideTip();document.querySelectorAll('.srow.is-hover').forEach(e=>e.classList.remove('is-hover'));return;}
+    tipKey=s.key;tipAt=at;tip.style.display='block';refreshTip();
+    document.querySelectorAll('.srow').forEach(e=>e.classList.toggle('is-hover',e.dataset.key===s.key));
   },
 };
 let office = null;
@@ -947,8 +1013,9 @@ function setLoading(on, text) {
   officeEl.classList.toggle('loading', on);
   if (text) document.getElementById('loaderText').textContent = text;
 }
+function showSceneError(){ officeKind=null; setLoading(true,'3D-сцена недоступна'); document.getElementById('loaderText').innerHTML='Не удалось открыть 3D-сцену.<br><button class="btn" id="retryScene">Повторить</button>'; document.querySelector('.office-loader .spin').style.display='none'; document.getElementById('retryScene').onclick=()=>{document.querySelector('.office-loader .spin').style.display='';makeOffice();}; }
 async function makeOffice() {
-  const high = state.quality === 'high';
+  const high = true;
   const scene = high && state.scene !== 'office' && state.scenes.some((x) => x.id === state.scene) ? state.scene : 'office';
   const kind = high ? `high:${scene}` : 'mid';
   if (kind === officeKind) return;
@@ -963,7 +1030,7 @@ async function makeOffice() {
         const m = await fetch(`/scenes/${scene}/manifest.json`).then((r) => r.json());
         opts.scene = { ...m, base: `/scenes/${scene}/` };
       }
-    } catch (e) { console.error(e); Cls = window.Office; }
+    } catch (e) { console.error(e); showSceneError(); return; }
     if (officeKind !== kind) return;
   }
   if (office) office.destroy();
@@ -971,9 +1038,7 @@ async function makeOffice() {
   try {
     mine = new Cls(officeEl, opts);
   } catch (e) {
-    console.error(e);
-    mine = new window.Office(officeEl, officeOpts);
-    if (high) { state.quality = 'mid'; store.set('quality', 'mid'); officeKind = 'mid'; syncControls(); }
+    console.error(e); showSceneError(); return;
   }
   office = mine;
   office.offDutyLabel = L.wentHome;
@@ -983,9 +1048,7 @@ async function makeOffice() {
   if (office !== mine) return;
   if (!ok && high) {
     // 3D failed (no WebGL, missing files…): fall back to the 2D office.
-    setLoading(true, L.failed3d);
-    state.quality = 'mid'; store.set('quality', 'mid'); syncControls();
-    setTimeout(() => makeOffice(), 1200);
+    mine.destroy(); office = null; showSceneError();
     return;
   }
   setLoading(false);
@@ -1087,7 +1150,7 @@ setInterval(loadVersion, 30 * 60 * 1000);
 
 // Language: a list of the nine translations plus Auto, in a toolbar menu.
 function renderLangMenu() {
-  const pick = store.get('lang', 'auto');
+  const pick = store.get('lang', 'ru');
   document.getElementById('langName').textContent = pick === 'auto' ? L.auto : I18N[pick]?.langName || L.auto;
   const item = (v, label, sub) => `<button role="option" aria-selected="${v === pick}" data-lang="${v}" class="${v === pick ? 'on' : ''}"><span class="lbl">${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}${CHECK}</button>`;
   document.getElementById('langList').innerHTML = item('auto', L.auto, I18N[chooseLangAuto()]?.langName) +
@@ -1102,7 +1165,7 @@ document.getElementById('langList').addEventListener('click', (e) => {
   closeMenus();
 });
 popout = new OfficePopout({
-  preferences: () => ({ ...Object.fromEntries(Object.keys(PREF_DEFAULTS).map((k) => [k, state[k]])), lang: store.get('lang', 'auto') }),
+  preferences: () => ({ ...Object.fromEntries(Object.keys(PREF_DEFAULTS).map((k) => [k, state[k]])), lang: store.get('lang', 'ru') }),
   office: () => office,
   text: (key) => L[key],
   changed: () => { syncControls(); render(); },
@@ -1110,7 +1173,7 @@ popout = new OfficePopout({
 // Both windows share preferences; keep filters, language, scene and badges in
 // sync even when changes come from the compact window or another open tab.
 window.addEventListener('storage', (e) => {
-  if (e.key !== null && !Object.keys(PREF_DEFAULTS).some((k) => e.key === 'wmad.' + k)) return;
+  if (e.key !== null && !Object.keys(PREF_DEFAULTS).some((k) => e.key === 'bureau.' + k)) return;
   Object.assign(state, readPreferences());
   renderLangMenu();
   hideTip();
@@ -1211,16 +1274,20 @@ function renderSide() {
   const list = visible();
   document.getElementById('sideCount').textContent = list.length;
   document.getElementById('sideTabCount').textContent = `${L.agentsTitle} · ${list.length}`;
-  const rows = GROUPS.map((g) => {
-    const items = list.filter((s) => g.match(s.status));
+  const rows = ['dot', 'local'].map(source => {
+    const groupList = list.filter(s => (s.agent === 'dot') === (source === 'dot'));
+    if (!groupList.length) return '';
+    return `<div class="side-group">${source === 'dot' ? 'Команда Dot' : 'Локальные сессии'}</div>` + GROUPS.map((g) => {
+    const items = groupList.filter((s) => g.match(s.status));
     if (!items.length) return '';
     return `<div class="side-group">${esc(L[g.key])} · ${items.length}</div>` + items.map((s, i) => {
-      const act = s.stuck ? L.stuck(s.stuck) : s.activity || (s.status === 'done' && s.reply) || s.title || '';
+      const act = s.stuck ? L.stuck(s.stuck) : s.activity || '';
       return `<button class="srow${s.subagent ? ' sub' : ''}" data-key="${esc(s.key)}" style="--s:${statusColor(s.status)};--i:${Math.min(i + (g.key === 'working' ? 3 : g.key === 'finished' ? 8 : 0), 14)}">
-        ${agentLogo(s.agent) || '<span></span>'}<span class="nm">${esc(s.project || AGENT_NAME[s.agent] || s.agent)}</span>
+        ${agentLogo(s.agent) || '<span></span>'}<span class="nm">${esc(agentNameFor(s))}</span>
         <span class="tm" data-time="${esc(s.key)}"></span>
-        <span class="st"><i></i><b>${esc(L[s.status] || s.status)}</b>${act ? `<span>${esc(act)}</span>` : ''}</span></button>`;
+        <span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act ? `<span>${esc(act)}</span>` : ''}</span></button>`;
     }).join('');
+  }).join('');
   }).join('');
   const box = document.getElementById('sideRows');
   const html = rows || `<div class="msgs-note">${esc(L.empty)}</div>`;
@@ -1235,7 +1302,7 @@ function renderSide() {
 }
 
 function openDetail(key) {
-  sel = key;
+  sel = key; if(office)office.selectedKey=key;
   if (!state.side) setSide(true);
   document.getElementById('sideList').inert = true;
   document.getElementById('sideDetail').inert = false;
@@ -1250,7 +1317,8 @@ function openDetail(key) {
   });
 }
 function closeDetail() {
-  sel = null;
+  const previous=sel; sel = null; if(office)office.selectedKey=null;
+  requestAnimationFrame(()=>document.querySelector(`.srow[data-key="${CSS.escape(previous||'')}"]`)?.focus());
   sideEl.classList.remove('detail');
   document.getElementById('sideList').inert = false;
   document.getElementById('sideDetail').inert = true;
@@ -1260,10 +1328,10 @@ function renderDetail(scrollDown) {
   const s = state.data.sessions.find((x) => x.key === sel);
   if (!s) { closeDetail(); return; }
   const now = Date.now() - state.skew;
-  document.getElementById('detailTitle').innerHTML = `${agentLogo(s.agent)}${esc(s.project || AGENT_NAME[s.agent] || s.agent)}`;
+  document.getElementById('detailTitle').innerHTML = `${agentLogo(s.agent)}${esc(agentNameFor(s))}`;
   // Fetch again whenever the agent logged something new.
-  if (convo.at !== s.lastEventAt && !convo.busy) loadConvo(s);
-  const body = document.getElementById('detailBody');
+  if (s.source !== 'dot-snapshot' && convo.at !== s.lastEventAt && !convo.busy) loadConvo(s);
+  const body = document.getElementById('detailBody'); body.dataset.key=s.key;
   const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
   const msgs = convo.private ? `<div class="msgs-note">${esc(L.privateNote)}</div>`
     : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
@@ -1273,23 +1341,23 @@ function renderDetail(scrollDown) {
           : `<div class="msg ${m.role}">${esc(m.text)}<span class="at">${esc(hhmm(m.at))}</span></div>`).join('')}</div>`;
   const resume = resumeCmd(s);
   const html = `
-    ${s.title && s.title !== s.project ? `<div class="dtitle">${esc(s.title)}</div>` : ''}
-    <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(L[s.status] || s.status)}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
-    <dl class="dmeta">
+    <div class="detail-source">${esc(sourceFor(s))}</div><button class="btn focus-agent" data-focus-agent="${esc(s.key)}">Показать в офисе</button>
+    <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(statusLabel(s))}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
+    ${s.source !== 'dot-snapshot' ? `<dl class="dmeta">
       <dt>${esc(L.modelL)}</dt><dd>${esc(s.model || '—')}${s.subagent ? ` · ${esc(L.sub)}` : ''}</dd>
       <dt>${esc(L.folderL)}</dt><dd class="mono" title="${esc(s.cwd || '')}">${esc(s.cwd || '—')}</dd>
       <dt>${esc(L.today)}</dt><dd>${s.today ? `${s.today.turns} ${esc(L.turnsL)} · ${fmtTokens(s.today.tokens)} ${esc(L.tokensL)}` : '—'}</dd>
       <dt></dt><dd data-time="${esc(s.key)}"></dd>
-    </dl>
+    </dl>` : ''}
+    ${s.source === 'dot-snapshot' ? `<p class="msgs-note">Снимок ${esc(new Date(s.observedAt).toLocaleString())}. ${s.snapshotStale ? 'Устарел: текущий статус неизвестен.' : 'Последний полученный статус, не live-поток.'} Модель и расход не экспортируются.</p>` : ''}
     ${contextBar(s.context)}
     ${resume ? `<div class="dactions"><button class="copy" data-copy="${esc(resume)}">${L.copy}</button></div>` : ''}
-    <div class="side-sec">${esc(L.recent)}</div>
-    ${msgs}`;
+    ${s.source === 'dot-snapshot' ? '' : `<div class="side-sec">${esc(L.recent)}</div>${msgs}`}`;
   // The turn timer ticks on its own (tickTimes), so the panel only redraws when something changed.
   if (body.dataset.html !== html) {
     body.innerHTML = html; body.dataset.html = html;
     const t = body.querySelector('[data-time]'); if (t) t.textContent = timeLabel(s, now);
-    if (scrollDown || nearBottom) body.scrollTop = body.scrollHeight;
+    if (scrollDown) body.scrollTop = 0;
   }
 }
 const GEAR = '<svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg>';
@@ -1329,7 +1397,16 @@ if (state.full) {
   syncFull();
 }
 
+
+document.getElementById('overviewBtn').onclick=()=>{hideTip();office?.resetView?.();};
+document.getElementById('agentSearch').addEventListener('input',e=>{state.search=e.target.value.toLocaleLowerCase().trim();renderNow();});
+document.querySelector('.roster-filters').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;state.statusFilter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.setAttribute('aria-pressed',x===b));renderNow();});
+document.getElementById('sideRows').addEventListener('pointerover',e=>{const b=e.target.closest('.srow');if(b&&office)office.hoverKey=b.dataset.key;});
+document.getElementById('sideRows').addEventListener('pointerleave',()=>{if(office)office.hoverKey=null;});
+document.getElementById('detailBody').addEventListener('click',e=>{const b=e.target.closest('[data-focus-agent]');if(b)office?.focusAgent?.(b.dataset.focusAgent);});
+
 setInterval(tickTimes, 1000);
 </script>
+<script src="/bureau-tools.js"></script>
 </body>
 </html>

@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+HERE=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+export AGENT_OFFICE_NODE="$HERE/usr/bin/node"
+export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+exec python3 "$HERE/usr/share/ubi-bureau/bin/agent-office.py" "$@"
