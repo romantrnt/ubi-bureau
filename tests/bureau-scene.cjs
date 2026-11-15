@@ -52,8 +52,10 @@ const fixture=`<!doctype html><html lang="ru"><meta charset="utf-8"><style>html,
  assert.ok(memory.at(-1).textures<=memory[0].textures,JSON.stringify(memory));
  assert.ok(memory.at(-1).programs<=memory[0].programs,JSON.stringify(memory));
  await p.screenshot({path:'/tmp/bureau-scene-25.png'});
- await p.evaluate(()=>{office.showAgent=false;office.selectedKey=null;office.hoverKey=null});await p.waitForTimeout(80);
- assert.ok(await p.evaluate(()=>office.labels.length>0&&office.labels.every(r=>r.x1-r.x0===18)));
+ const labelsFrame=await p.evaluate(()=>{office.showAgent=false;office.selectedKey=null;office.hoverKey=null;return office.framesShown});
+ await p.waitForFunction(frame=>office.framesShown>frame,labelsFrame);
+ const labelWidths=await p.evaluate(()=>office.labels.map(r=>r.x1-r.x0));
+ assert.ok(labelWidths.length>0&&labelWidths.every(width=>Math.abs(width-18)<1e-6),'all rendered labels remain compact: '+JSON.stringify(labelWidths));
  for(const mode of ['motionPaused','reducedMotion']){
   await p.evaluate(mode=>{office.motionPaused=false;office.reducedMotion=false;office[mode]=true;office.update([])},mode);
   await p.waitForFunction(()=>office.people.size===0&&office.actors.size===0);
