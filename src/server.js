@@ -34,22 +34,35 @@ function serveFile(res, root, rel) {
   res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' });
   fs.createReadStream(file).pipe(res);
 }
-const ACTIVE = new Set(['thinking', 'tool', 'typing']);
+const EVIDENCE_TTL = 120_000;
+const TERMINAL = new Set(['done', 'interrupted', 'error']);
 
-// Logs only record finished blocks, so a few states need a clock to resolve:
-// a reply with no follow-up is a finished turn, and an "active" session that
-// has gone silent for a long time was most likely closed mid-turn.
-function view(s, now, { privacy }) {
-  const quiet = now - (s.lastEventAt || s.mtime || now);
-  let status = s.status;
-  if (status === 'typing' && !s.explicitLifecycle && quiet > 45_000) status = 'done';
-  if (status === 'typing' && s.explicitLifecycle && quiet > 15 * 60_000) status = 'idle';
-  if (status === 'thinking' && s.source !== 'magpie' && quiet > 15 * 60_000) status = 'idle';
-  if (status === 'tool' && quiet > 45 * 60_000) status = 'idle';
-  if ((status === 'waiting' || status === 'error') && quiet > 2 * 3600_000) status = 'idle';
-  // Still "active" but silent for a while: likely stuck (a hung tool, a lost prompt).
-  const stuckAfter = status === 'tool' ? 10 * 60_000 : status === 'thinking' ? 8 * 60_000 : Infinity;
-  const stuck = quiet > stuckAfter ? Math.floor(quiet / 60_000) : 0;
+// A log describes what was observed, not whether its process is still alive.
+// Silence cannot prove either completion or that an approval still blocks it.
+function presence(s, now, demo) {
+  const source = demo ? 'demo' : s.source || s.telemetrySource || 'session-log';
+  const observed = Object.hasOwn(s, 'statusObservedAt') ? s.statusObservedAt : s.lastEventAt;
+  const observedAt = Number.isFinite(observed) && observed > 0 ? observed : null;
+  const valid = observedAt !== null && observedAt <= now + 5000;
+  const stale = !valid || now - observedAt > EVIDENCE_TTL;
+  const live = !demo && s.source === 'magpie' && s.liveObservedAt > now - 15_000 && s.liveObservedAt <= now + 5000;
+  let status = s.status || 'unknown';
+  let kind = TERMINAL.has(status) ? 'terminal' : 'recent';
+  let reason = null;
+  if (source === 'dot-snapshot') {
+    status = 'unknown'; kind = 'unknown'; reason = s.presenceReason || 'manual-snapshot';
+  } else if (source === 'magpie' && !live) {
+    status = 'unknown'; kind = 'unknown'; reason = 'no-live-request';
+  } else if (status === 'unknown' || (!demo && !TERMINAL.has(status) && !live && stale)) {
+    status = 'unknown'; kind = 'unknown'; reason = !valid ? 'no-current-evidence' : 'stale-evidence';
+  }
+  return { status, presence: { kind, source, live: !!live, observedAt, stale: !demo && stale,
+    lastKnownStatus: s.lastObservedStatus || (s.status && s.status !== 'unknown' ? s.status : null), reason } };
+}
+
+function view(s, now, { privacy, demo }) {
+  const observed = presence(s, now, demo);
+  const { status } = observed;
 
   const out = {
     key: `${s.agent}:${s.id}`,
@@ -65,10 +78,12 @@ function view(s, now, { privacy }) {
     title: s.title,
     model: s.model,
     status,
-    stuck,
+    presence: observed.presence,
+    stuck: 0,
+    ...(s.agent === 'dot' ? { activeSubagents: Number.isInteger(s.activeSubagents) && s.activeSubagents >= 0 ? s.activeSubagents : null } : {}),
     context: s.context ? { used: s.context, window: s.contextWindow || null } : null,
     today: s.daily && s.daily.day === dayKey(now) ? { turns: s.daily.turns, tokens: s.daily.tokens } : null,
-    activity: status === 'tool' || status === 'waiting' ? s.activity : null,
+    activity: status === 'tool' || status === 'waiting' || status === 'unknown' ? s.activity : null,
     prompt: s.prompt,
     reply: s.reply,
     error: s.error,
@@ -115,13 +130,18 @@ function summary(sessions, now) {
   return out;
 }
 
-function snapshot(watcher, opts) {
+function snapshot(watcher, opts = {}) {
   const now = Date.now();
-  const dot = opts.dotSnapshot && !opts.demo ? readDotSnapshot() : {sessions:[],connection:null};
+  const dot = opts.demo ? { sessions: [{ agent:'dot',id:'/root',source:'dot-snapshot',agentName:'Dot',title:'Dot',
+    status:'unknown',subagent:false,parentId:null,activeSubagents:null,observedAt:null,lastEventAt:null,
+    snapshotStale:true,presenceReason:'demo-unavailable' }], connection: { source:'dot-snapshot',mode:'snapshot',
+      live:false,available:false,stale:true,observedAt:null,activeSubagents:null,reason:'Demo has no live Dot source' } }
+    : opts.dotSnapshot ? readDotSnapshot() : {sessions:[],connection:null};
   const raw = watcher.sessions().concat(dot.sessions);
   const sessions = raw.map((s) => view(s, now, opts));
   sessions.sort((a, b) => (b.lastEventAt || 0) - (a.lastEventAt || 0));
-  return { now, dotConnection:dot.connection, lang: opts.demo ? null : promptLanguage(raw), sessions, summary: summary(sessions, now) };
+  return { now, dotConnection:dot.connection, sources: watcher.health ? watcher.health() : null,
+    lang: opts.demo ? null : promptLanguage(raw), sessions, summary: summary(sessions, now) };
 }
 
 function createServer(watcher, opts, { onShutdown, onRestart } = {}) {
@@ -139,10 +159,11 @@ function createServer(watcher, opts, { onShutdown, onRestart } = {}) {
     last = sig;
     for (const res of clients) res.write(`data: ${body}\n\n`);
   };
-  watcher.on('change', () => push(false));
+  const onChange = () => push(false);
+  watcher.on('change', onChange);
   // Status can flip with no new log lines (see view()), so re-check on a clock.
-  setInterval(() => push(false), 5000).unref();
-  setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 20000).unref();
+  const clockTimer = setInterval(() => push(false), 5000).unref();
+  const pingTimer = setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 20000).unref();
 
   const server = http.createServer((req, res) => {
     // Refuse anything not addressed to loopback (blocks DNS-rebinding pages
@@ -243,7 +264,13 @@ function createServer(watcher, opts, { onShutdown, onRestart } = {}) {
       res.writeHead(404).end();
     }
   });
+  server.on('close', () => {
+    clearInterval(clockTimer);
+    clearInterval(pingTimer);
+    watcher.removeListener?.('change', onChange);
+    clients.clear();
+  });
   return server;
 }
 
-module.exports = { createServer, snapshot };
+module.exports = { createServer, snapshot, presence, EVIDENCE_TTL };

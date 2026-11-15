@@ -87,6 +87,7 @@ async function main() {
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
+    assert.equal(watcher.listenerCount('change'), 0, 'closed servers release their watcher subscription');
   }
 }
 

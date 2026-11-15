@@ -154,10 +154,10 @@ test('explicit-lifecycle clients never become Done from the reply timeout', () =
     ['grok', applyGrok, grok('agent_message_chunk', { content: { text: 'Working' } })],
   ]) {
     const s = newSession(agent, 'one');
-    apply(s, event); s.lastEventAt = Date.now() - 60000;
+    apply(s, event); s.statusObservedAt = s.lastEventAt = Date.now() - 60000;
     assert.equal(snapshot({ sessions: () => [s] }, {}).sessions[0].status, 'typing');
-    s.lastEventAt = Date.now() - 16 * 60000;
-    assert.equal(snapshot({ sessions: () => [s] }, {}).sessions[0].status, 'idle');
+    s.statusObservedAt = s.lastEventAt = Date.now() - 16 * 60000;
+    assert.equal(snapshot({ sessions: () => [s] }, {}).sessions[0].status, 'unknown');
   }
 });
 

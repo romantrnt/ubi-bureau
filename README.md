@@ -21,7 +21,7 @@
 
 Ubi Bureau turns local agent activity into a quiet desktop office: people at their desks, a searchable team roster, and clear signals when someone needs your attention. The Linux window uses GTK4 and WebKitGTK; the office is rendered with Three.js.
 
-It is an independent derivative of [whatsmyagentdoing](https://github.com/Charonyuu/whatsmyagentdoing), with the original MIT attribution preserved. Ubi Bureau adds a focused 3D interface, neutral surfaces, keyboard navigation, camera controls, a native Linux window and explicitly dated Dot snapshots.
+It is an independent derivative of [whatsmyagentdoing](https://github.com/Charonyuu/whatsmyagentdoing), with the original MIT attribution preserved. Ubi Bureau 0.3 adds a warm procedural studio, outlined provider mascots, a dense telemetry view, searchable current sessions and history, and a native Linux window. Readable Adwaita Sans replaces the pixel interface type. The default dark appearance uses neutral gray surfaces (`#212121`, `#171717`, `#2f2f2f`); a light appearance is available in Settings. The scene itself shows action, source and observation age beside agents, plus a current-state board. Codex keeps its cloud-shaped head and Dot its three-server silhouette.
 
 ## What it does
 
@@ -29,32 +29,34 @@ It is an independent derivative of [whatsmyagentdoing](https://github.com/Charon
 - **Find the right person.** Search and filter the roster, select an agent in the scene, and return from its detail panel without losing your place.
 - **Focus the office.** Zoom, restore the overview, save a camera angle, or pause decorative movement while status updates continue.
 - **Act deliberately.** Copy resume commands and identifiers. The native Codex button hands a validated conversation link to an installed `codex://` handler; it does not send a prompt or execute the copied command.
-- **Keep provenance visible.** Local sessions and Dot observations are separate sources. A Dot snapshot older than 120 seconds becomes **unknown**, not permanently working.
+- **Keep provenance visible.** Every status carries its source and observation time. Local log activity older than 120 seconds becomes **unknown** unless a terminal event was recorded. Recent log activity is evidence of work, not proof that a process is still running.
+- **Separate current work and history.** Finished sessions stay in the history inspector and never populate the scene. Search names, projects, folders and IDs; use the telemetry view when density or graphics availability matters. Today totals and context information remain available.
+- **One Dot.** The triple-server coordinator always has an unknown live status and an unavailable active-worker count. Imported snapshots never create a crowd of working mascots.
 
 The current desktop interface is Russian. These English, Chinese and Russian READMEs translate the documentation, not the complete application UI.
 
 ## Updates
 
-Version 0.2.0 adds signed AppImage updates: notify or download automatically while open, then explicitly confirm installation. A separate backup is kept; there is no silent install or restart. Checks default to once per 24 hours and can be disabled. Version 0.1.0 must be replaced manually once. See [update security, controls and limits](docs/UPDATES.md).
+Version 0.3.0 retains the signed AppImage updater introduced in 0.2.0: notify or download automatically while open, then explicitly confirm installation. A separate backup is kept; there is no silent install or restart. Checks default to once per 24 hours and can be disabled. Version 0.1.0 must be replaced manually once. See [update security, controls and limits](docs/UPDATES.md).
 
 ## Start here
 
-Download `Ubi_Bureau-0.2.0-x86_64.AppImage` and its checksum from [Releases](https://github.com/romantrnt/ubi-bureau/releases).
+Download `Ubi_Bureau-0.3.0-x86_64.AppImage` and its checksum from [Releases](https://github.com/romantrnt/ubi-bureau/releases).
 
 **This is a host-runtime AppImage, not a self-contained Linux bundle.** It packages Ubi Bureau, its web assets and **Node.js 24.22.3**. System Node is not needed for the AppImage, but Python 3 with PyGObject, GTK4 and **WebKitGTK 6.0** introspection are required. It targets glibc-based Linux x86_64 with working WebGL; GNOME/Wayland is the primary desktop target. The bundled Node runtime requires glibc 2.28+ and compatible libstdc++/libgcc; Alpine/musl is not a supported target. Other distributions and desktops are not automatically certified by the AppImage format.
 
 ```sh
-chmod +x Ubi_Bureau-0.2.0-x86_64.AppImage
-./Ubi_Bureau-0.2.0-x86_64.AppImage --check
-./Ubi_Bureau-0.2.0-x86_64.AppImage --demo
+chmod +x Ubi_Bureau-0.3.0-x86_64.AppImage
+./Ubi_Bureau-0.3.0-x86_64.AppImage --check
+./Ubi_Bureau-0.3.0-x86_64.AppImage --demo
 # Then show your actual local sessions:
-./Ubi_Bureau-0.2.0-x86_64.AppImage
+./Ubi_Bureau-0.3.0-x86_64.AppImage
 ```
 
 If FUSE mounting is unavailable:
 
 ```sh
-./Ubi_Bureau-0.2.0-x86_64.AppImage --appimage-extract-and-run
+./Ubi_Bureau-0.3.0-x86_64.AppImage --appimage-extract-and-run
 ```
 
 Close the demo window before launching the normal mode. To change `--demo` or `--private`, close and relaunch the app.
@@ -80,7 +82,7 @@ Drag to rotate the scene and scroll to zoom. The bottom toolbar also provides ca
 
 The inherited adapters cover Claude Code, Codex, Gemini CLI, Antigravity CLI, GitHub Copilot CLI, OMP, Pi, Kimi Code, DeepSeek Harness, Grok Build, OpenCode and Hermes. Detection depends on readable local stores and compatible client formats. A provider's name here is not a guarantee that every version or desktop variant is supported. OpenCode and Hermes require Node's built-in SQLite support; no data is invented when a store is unavailable.
 
-**Dot is not a live cloud connection.** Ubi Bureau can display an explicitly supplied snapshot of observed workers. There is no supported continuous Dot feed in this release, no automatic cloud polling, and no fabricated model, token or conversation data. Missing input is disconnected; old input becomes unknown. See [the snapshot contract](docs/DOT.md).
+**Dot is not a live cloud connection.** Ubi Bureau displays one coordinator, including when no snapshot exists. A supplied snapshot contributes its observation date and last known root status only; current status and active subagent count remain unavailable. There is no supported continuous Dot feed, automatic cloud polling, or fabricated model, token or conversation data. See [the snapshot contract](docs/DOT.md).
 
 The local HTTP server is loopback-only, but is not an authentication boundary against other local programs. Do not expose it through port forwarding, a reverse proxy or a public tunnel. Extra scene packs are optional downloads, verified against the pinned hashes in the catalog. Read [Privacy](docs/PRIVACY.md) before screen sharing or publishing diagnostics.
 
@@ -100,4 +102,4 @@ The checked-in web bundle lets a source checkout run without installing developm
 
 ## Credits and license
 
-Based on **whatsmyagentdoing v0.8.1** by cheoyu / Charonyuu, at [`c69bf2b`](https://github.com/Charonyuu/whatsmyagentdoing/commit/c69bf2bc98cf96a63d146070e9bbc83b507bf0bf). The original [MIT license](LICENSE) is retained. Office models are Kenney CC0 assets; bundled code, fonts and provider marks retain their own notices and rights. See [Third-party notices](THIRD-PARTY-NOTICES.md). This project is not endorsed by the agent providers.
+Based on **whatsmyagentdoing v0.8.1** by cheoyu / Charonyuu, at [`c69bf2b`](https://github.com/Charonyuu/whatsmyagentdoing/commit/c69bf2bc98cf96a63d146070e9bbc83b507bf0bf). The original [MIT license](LICENSE) is retained. The default studio and mascots are procedural; retained optional office models are Kenney CC0 assets; bundled code, fonts and provider marks retain their own notices and rights. See [Third-party notices](THIRD-PARTY-NOTICES.md). This project is not endorsed by the agent providers.

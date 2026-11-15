@@ -126,7 +126,7 @@ test('OMP gateway snapshots omit Resume while matching local logs retain it', as
   watcher.magpies = [magpie];
   watcher.trackers.set('/fake/local.jsonl', { session: {
     ...newSession('omp', 'local', '/fake/local.jsonl'), sessionId: 'local',
-    cwd: '/fixture', status: 'waiting', lastEventAt: NOW, ompProfile: 'work',
+    cwd: '/fixture', status: 'waiting', lastEventAt: NOW, statusObservedAt: NOW, ompProfile: 'work',
   } });
   const rows = snapshot(watcher, {}).sessions;
   assert.equal(rows.length, 2);
@@ -331,7 +331,7 @@ test('--json awaits both sources and fails without emitting a partial snapshot',
     [path.join(__dirname, '../bin/cli.js'), '--json', '--private'], { env });
   const result = await run();
   const rows = JSON.parse(result.stdout);
-  assert.deepEqual(rows.map(s => [s.id, s.status]).sort(), [['first', 'idle'], ['second', 'thinking']]);
+  assert.deepEqual(rows.map(s => [s.id, s.status]).sort(), [['first', 'unknown'], ['second', 'thinking']]);
   assert.ok(rows.every(s => s.title === null && s.prompt === null && s.reply === null));
   assert.ok(a.state.cookies.every(c => c === `magpie_web_3430=${a.state.key}`));
   assert.ok(b.state.cookies.every(c => c === `magpie_web_3431=${b.state.key}`));

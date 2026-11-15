@@ -96,6 +96,7 @@ function text(parts) {
 
 function state(s, status, activity = null) {
   s.status = status; s.activity = activity;
+  s.statusObservedAt = s.lastEventAt;
   if (status !== 'error') s.error = null;
 }
 

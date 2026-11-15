@@ -24,7 +24,11 @@ The 3D bundle includes **Three.js**, MIT licensed: https://github.com/mrdoob/thr
 
 **esbuild** (MIT) and **Playwright** (Apache-2.0) are development tools, not permission to redistribute their separate browser runtimes without the corresponding notices. The host-runtime AppImage does not bundle Chromium.
 
-## Pixel wordmark font
+## Interface font
+
+**Adwaita Sans** (font version 4.001), based on Inter, is distributed under the SIL Open Font License 1.1. The unmodified variable regular font and complete supplied notice are bundled at [assets/fonts/AdwaitaSans-Regular.ttf](assets/fonts/AdwaitaSans-Regular.ttf) and [assets/fonts/Adwaita-LICENSE.txt](assets/fonts/Adwaita-LICENSE.txt). Source: https://gitlab.gnome.org/GNOME/adwaita-fonts. Obtained from the installed distribution package; no font service is contacted.
+
+## Retained pixel font
 
 **Pixelify Sans**, obtained from the Google Fonts repository, uses the SIL Open Font License 1.1. The font and complete supplied notice are bundled at [assets/fonts/PixelifySans.ttf](assets/fonts/PixelifySans.ttf) and [assets/fonts/OFL.txt](assets/fonts/OFL.txt).
 

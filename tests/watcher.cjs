@@ -79,6 +79,58 @@ test('an old inactive chat is discovered after resuming, then tailed without reo
   assert.equal(f.watcher.sessions()[0].reply, 'Finished');
 });
 
+test('new sessions appear on discovery and a growing JSONL record completes on the next tick', t => {
+  const f = fixture(t);
+  f.watcher.tick();
+  assert.equal(f.watcher.sessions().length, 0);
+  const log = f.write('2026/10/26', 1, NOW);
+  f.advance(6000);f.watcher.tick();
+  assert.equal(f.watcher.sessions()[0].id, log.id);
+  const tracker = f.watcher.trackers.get(log.file);
+  const line = JSON.stringify({ timestamp: new Date(NOW + 6000).toISOString(), type: 'event_msg',
+    payload: { type: 'task_complete', last_agent_message: 'Finished after split record' } }) + '\n';
+  const split = Math.floor(line.length / 2);
+  fs.appendFileSync(log.file, line.slice(0, split));
+  f.watcher.tick();
+  assert.equal(f.watcher.sessions()[0].status, 'thinking');
+  fs.appendFileSync(log.file, line.slice(split));
+  f.watcher.tick();
+  assert.equal(f.watcher.sessions()[0].status, 'done');
+  assert.equal(f.watcher.trackers.get(log.file), tracker);
+  assert.equal(f.watcher.health().logs.discoveryIntervalMs, 5000);
+});
+
+test('deleted logs disappear and truncated logs replace stale state in the same tick', t => {
+  const f = fixture(t);
+  const removed = f.write('2026/10/26', 1, NOW);
+  const replaced = f.write('2026/10/26', 2, NOW);
+  f.watcher.tick();
+  fs.unlinkSync(removed.file);
+  fs.writeFileSync(replaced.file, JSON.stringify({ timestamp: new Date(NOW).toISOString(),
+    type: 'event_msg', payload: { type: 'task_complete', last_agent_message: 'Replacement' } }) + '\n');
+  f.watcher.tick();
+  assert.equal(f.watcher.sessions().length, 1);
+  assert.equal(f.watcher.sessions()[0].id, replaced.id);
+  assert.equal(f.watcher.sessions()[0].status, 'done');
+  assert.equal(f.watcher.sessions()[0].cwd, null, 'old metadata does not leak into replacement');
+  assert.equal(f.watcher.sessions()[0].reply, 'Replacement');
+  f.advance(6000);f.watcher.tick();
+  assert.equal(f.watcher.sessions().length, 1, 'a later directory scan must not resurrect the removed file');
+});
+
+test('an atomically rotated log is replayed even when the new inode is larger', t => {
+  const f = fixture(t);
+  const log = f.write('2026/10/26', 1, NOW);
+  f.watcher.tick();
+  fs.writeFileSync(log.file + '.next', JSON.stringify({ timestamp: new Date(NOW).toISOString(),
+    type: 'event_msg', payload: { type: 'task_complete', last_agent_message: 'Fresh inode '.repeat(80) } }) + '\n');
+  fs.renameSync(log.file + '.next', log.file);
+  f.watcher.tick();
+  assert.equal(f.watcher.sessions()[0].status, 'done');
+  assert.equal(f.watcher.sessions()[0].cwd, null);
+  assert.match(f.watcher.sessions()[0].reply, /^Fresh inode/);
+});
+
 test('custom hours still excludes inactive logs and expires tracked sessions', t => {
   const f = fixture(t, 2);
   const active = f.write('2024/12/31', 1, NOW - HOUR);
@@ -152,6 +204,63 @@ test('legacy Gemini documents reload when their size changes without an mtime ch
   assert.equal(f.watcher.sessions().length, 1);
   assert.equal(f.watcher.sessions()[0].status, 'tool');
   assert.equal(f.watcher.sessions()[0].activity, 'read_file config.json');
+});
+
+test('Gemini re-appended message timestamps use the new observation, while metadata cannot revive them', t => {
+  const { presence } = require('../src/server');
+  const f = fixture(t);
+  const file = path.join(f.root, '.gemini/tmp/demo/chats/session-live.jsonl');
+  const old = NOW - 600_000;
+  const message = { type: 'gemini', id: 'same-message', timestamp: new Date(old).toISOString(),
+    toolCalls: [{ name: 'run_shell_command', status: 'executing', args: { command: 'sleep 1' } }] };
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ sessionId: 'live', startTime: new Date(old).toISOString() }) + '\n' + JSON.stringify(message) + '\n');
+  fs.utimesSync(file, new Date(old), new Date(old));
+  f.watcher.tick();
+  assert.equal(presence(f.watcher.sessions()[0], NOW).status, 'unknown');
+  fs.appendFileSync(file, JSON.stringify(message) + '\n' + JSON.stringify({ $set: { summary: 'Current run metadata in the same batch' } }) + '\n');
+  fs.utimesSync(file, new Date(NOW), new Date(NOW));
+  f.watcher.tick();
+  let session = f.watcher.sessions()[0];
+  assert.equal(session.statusObservedAt, NOW);
+  assert.equal(presence(session, NOW).status, 'tool');
+  assert.equal(presence(session, NOW).presence.live, false);
+  f.advance(180_000);
+  fs.appendFileSync(file, JSON.stringify({ $set: { summary: 'Renamed', model: 'metadata-only' } }) + '\n');
+  fs.utimesSync(file, new Date(NOW + 180_000), new Date(NOW + 180_000));
+  f.watcher.tick();
+  session = f.watcher.sessions()[0];
+  assert.equal(session.statusObservedAt, NOW);
+  assert.equal(presence(session, NOW + 180_000).status, 'unknown');
+  const restarted = new f.watcher.constructor({ hours: 24 });
+  restarted.tick();
+  assert.equal(presence(restarted.sessions()[0], NOW + 180_000).status, 'unknown', 'startup after a metadata append must not revive old work');
+});
+
+test('legacy Gemini metadata-only document rewrites preserve the previous lifecycle observation', t => {
+  const { presence } = require('../src/server');
+  const f = fixture(t);
+  const file = path.join(f.root, '.gemini/tmp/demo/chats/session-legacy-metadata.json');
+  const doc = { sessionId: 'legacy-metadata', messages: [{ type: 'gemini', timestamp: new Date(NOW).toISOString(),
+    toolCalls: [{ name: 'read_file', status: 'executing', args: { path: 'config.json' } }] }] };
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(doc));fs.utimesSync(file, new Date(NOW), new Date(NOW));
+  f.watcher.tick();assert.equal(presence(f.watcher.sessions()[0], NOW).status, 'tool');
+  f.advance(180_000);doc.summary = 'Metadata changed';
+  fs.writeFileSync(file, JSON.stringify(doc));fs.utimesSync(file, new Date(NOW + 180_000), new Date(NOW + 180_000));
+  f.watcher.tick();
+  assert.equal(f.watcher.sessions()[0].statusObservedAt, NOW);
+  assert.equal(presence(f.watcher.sessions()[0], NOW + 180_000).status, 'unknown');
+  const restarted = new f.watcher.constructor({ hours: 24 });
+  restarted.tick();
+  assert.equal(restarted.sessions()[0].statusObservedAt, NOW);
+  assert.equal(presence(restarted.sessions()[0], NOW + 180_000).status, 'unknown', 'a restart cannot mistake a metadata rewrite for a current message');
+  doc.messages.push({ type: 'gemini', timestamp: new Date(NOW).toISOString(),
+    toolCalls: [{ name: 'read_file', status: 'executing', args: { path: 'updated-config.json' } }] });
+  fs.writeFileSync(file, JSON.stringify(doc));fs.utimesSync(file, new Date(NOW + 180_000), new Date(NOW + 180_000));
+  f.watcher.tick();
+  assert.equal(f.watcher.sessions()[0].statusObservedAt, NOW + 180_000);
+  assert.equal(presence(f.watcher.sessions()[0], NOW + 180_000).status, 'tool', 'a changed message observed during polling is new evidence');
 });
 
 test('resumed Claude copies of one conversation show as a single session', t => {

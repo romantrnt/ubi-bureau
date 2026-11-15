@@ -1,15 +1,15 @@
-// High-quality office: same floor plan and behaviour as the 2D office
-// (office.js), rendered in 3D with Kenney's CC0 models (assets/kenney).
-// Bubbles and name tags are drawn by the 2D code on a canvas overlay.
+// A local instrument workshop for observed coding-agent activity.
+// The shared simulation owns discovery/pathing; this renderer owns the room,
+// semantic character states, picking and camera. Optional packs retain Kenney assets.
 // Source file: `npm run build` bundles it with three.js into public/office3d.js.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { codexMascot, dotMascot, disposeMascot } from './mascots.js';
+import { workerMascot, codexMascot, dotMascot, disposeMascot } from './mascots.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const CHARACTERS = ['male-a', 'male-b', 'male-c', 'male-d', 'male-e', 'male-f',
   'female-a', 'female-b', 'female-c', 'female-d', 'female-e', 'female-f'];
@@ -21,7 +21,7 @@ const FURNITURE = ['desk', 'chairDesk', 'computerScreen', 'computerKeyboard', 'c
   'coatRackStanding', 'radio', 'speaker', 'toaster', 'cardboardBoxClosed'];
 
 const STATUS_COLOR = {
-  thinking: 0x8b6be6, tool: 0x3b8ee0, typing: 0x22a874, waiting: 0xe09412, error: 0xde4b40,
+  thinking: 0x6c91a4, tool: 0x487c94, typing: 0x557e65, waiting: 0xc89132, error: 0xbf5747,
 };
 const CHAR_HEIGHT = 1.18; // world units (≈ tiles)
 const WALL_H = 2.4;
@@ -85,18 +85,18 @@ export class Office3D extends window.Office {
     this.gl.shadowMap.enabled = true;
     this.gl.shadowMap.type = THREE.PCFSoftShadowMap;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
-    this.gl.toneMapping = THREE.ACESFilmicToneMapping;
-    this.gl.toneMappingExposure = .9;
+    this.gl.toneMapping = THREE.NeutralToneMapping;
+    this.gl.toneMappingExposure = 1.0;
     this.gl.domElement.className = 'office-gl';
     root.insertBefore(this.gl.domElement, this.canvas);
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(this.pal.dark ? 0x343433 : 0xdfdfdc);
+    this.scene.background = new THREE.Color(0xedf0f3);
     const pmrem = new THREE.PMREMGenerator(this.gl);
     const roomEnv = new RoomEnvironment();
     this.envTarget = pmrem.fromScene(roomEnv, .08);
     this.scene.environment = this.envTarget.texture;
-    this.scene.environmentIntensity = .22;
+    this.scene.environmentIntensity = .12;
     pmrem.dispose(); roomEnv.dispose();
     this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
@@ -127,15 +127,15 @@ export class Office3D extends window.Office {
     this.controls.screenSpacePanning = true;
     this.controls.zoomToCursor = true;
 
-    this.hemi = new THREE.HemisphereLight(0xdceeff, 0xa89279, .68);
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0xc4b9ac, 2.2);
     this.scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight(0xffe1b3, 2.05);
+    this.sun = new THREE.DirectionalLight(0xfff4e7, 2.8);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0006;
     this.sun.shadow.normalBias = 0.025;
     this.sun.shadow.radius = 4;
-    this.fillLight = new THREE.DirectionalLight(0xb2d6ff, .45);
+    this.fillLight = new THREE.DirectionalLight(0xeaf2ff, 1.0);
     this.fillLight.position.set(12,8,-7);
     this.scene.add(this.fillLight);
     this.scene.add(this.sun, this.sun.target);
@@ -171,12 +171,28 @@ export class Office3D extends window.Office {
 
   buildPlan(n) {
     const def = PENDING_SCENE || this.sceneDef;
-    return def ? scenePlan(def) : super.buildPlan(n);
+    if (def) return scenePlan(def);
+    const capacity=Math.max(8,Math.ceil((n+2)/4)*4);
+    const cols=capacity>16?5:4,rows=Math.ceil((capacity-1)/cols);
+    const W=3.55+cols*2.12,D=rows*2.62+2.1;
+    const grid=new window.OfficeGrid(W,D),desks=[];
+    const dot={x:1.05,y:D-2.75,side:'n',seat:{x:1.68,y:D-1.36},pose:'stand',yaw:0,reservedFor:'dot'};
+    desks.push(dot);grid.block(dot.x-.2,dot.y-.16,1.75,.58,.05);
+    for(let i=1;i<capacity;i++){
+      const x=3.65+((i-1)%cols)*2.12,y=1.25+Math.floor((i-1)/cols)*2.62;
+      const dk={x,y,side:'n',seat:{x:x+.70,y:y+1.35},pose:'stand',yaw:0};
+      desks.push(dk);grid.block(x,y,1.55,.77,.08);
+    }
+    return {W,D,viewH:2.7,grid,desks,pois:[],items:[],props:[],windows:[],posters:[],
+      noNap:true,door:{x:.22,y:D-.65},pp:null,fixed:false};
   }
 
   // ------------------------------------------------------------ assets
 
   async load() {
+    // Default room and every actor are procedural. First paint does not wait on
+    // dozens of furniture/character network requests.
+    if(!this.sceneDef){this.chars=[];this.models={};this.loaded=true;return;}
     const loader = new GLTFLoader();
     loader.setMeshoptDecoder(MeshoptDecoder);
     const get = (url) => new Promise((ok, fail) => loader.load(url, ok, undefined, fail));
@@ -239,8 +255,14 @@ export class Office3D extends window.Office {
   }
 
   boxMesh(x, y, z, w, d, h, color, opts = {}) {
-    const mat = opts.mat || new THREE.MeshStandardMaterial({ color, roughness: opts.rough ?? 0.8, metalness: opts.metal ?? 0, ...(opts.emissive ? { emissive: opts.emissive, emissiveIntensity: opts.ei ?? 1 } : {}) });
-    const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(.035, w*.12, h*.12, d*.12)), mat);
+    const materialOptions={ color, roughness: opts.rough ?? 0.8, metalness: opts.metal ?? 0, ...(opts.emissive ? { emissive: opts.emissive, emissiveIntensity: opts.ei ?? 1 } : {}) };
+    const key=JSON.stringify(materialOptions),shape=[w,h,d].join('/');
+    const cache=!this.plan.scene;
+    let mat=opts.mat || (!opts.uniqueMaterial&&cache&&this.roomMaterials.get(key));
+    if(!mat){mat=new THREE.MeshStandardMaterial(materialOptions);if(cache&&!opts.uniqueMaterial&&!opts.mat)this.roomMaterials.set(key,mat);}
+    let geometry=cache&&this.roomGeometries.get(shape);
+    if(!geometry){geometry=new RoundedBoxGeometry(w,h,d,2,Math.min(.035,w*.12,h*.12,d*.12));if(cache)this.roomGeometries.set(shape,geometry);}
+    const m = new THREE.Mesh(geometry, mat);
     m.position.set(x + w / 2, z + h / 2, y + d / 2);
     m.castShadow = opts.shadow !== false;
     m.receiveShadow = true;
@@ -290,6 +312,28 @@ export class Office3D extends window.Office {
     this.bobbers = []; this.flames = []; this.pendants = []; this.pulsers = [];
     this.clearMat = null; this._glass = null; this.blinkers = [];
     this.screens.clear();
+    this.roomMaterials=new Map();this.roomGeometries=new Map();
+  }
+
+  batchRoom() {
+    // Static furniture shares a draw call by material; animated doors and
+    // status screens keep their own objects. Geometry is rebuilt only on a
+    // capacity change, never on a telemetry heartbeat.
+    const dynamic=new Set([...this.screens.values(),this.telemetryBoard]),batches=new Map(),originals=new Set();
+    for(const mesh of [...this.room.children]){
+      if(!mesh.isMesh||dynamic.has(mesh)||Array.isArray(mesh.material))continue;
+      const key=[mesh.material.uuid,mesh.castShadow,mesh.receiveShadow].join('/');
+      if(!batches.has(key))batches.set(key,{material:mesh.material,cast:mesh.castShadow,receive:mesh.receiveShadow,parts:[]});
+      mesh.updateMatrix();
+      const geometry=(mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry.clone()).applyMatrix4(mesh.matrix);
+      batches.get(key).parts.push(geometry);originals.add(mesh.geometry);this.room.remove(mesh);
+    }
+    for(const {material,cast,receive,parts} of batches.values()){
+      const mesh=new THREE.Mesh(mergeGeometries(parts),material);mesh.castShadow=cast;mesh.receiveShadow=receive;this.room.add(mesh);parts.forEach(g=>g.dispose());
+    }
+    const retained=new Set();this.room.traverse(o=>{if(o.geometry)retained.add(o.geometry);});
+    for(const geometry of originals)if(!retained.has(geometry))geometry.dispose();
+    this.roomGeometries.clear();this.roomMaterials.clear();
   }
 
   removeActor(key, actor) {
@@ -304,101 +348,97 @@ export class Office3D extends window.Office {
 
   build() {
     if (this.plan.scene) return this.buildScene();
-    const plan = this.plan;
-    this.clearRoom();
-    this.room = new THREE.Group();
-    this.scene.add(this.room);
-    this.screens.clear();
-    this.blinkers = [];
-    const { W, D, OW, MR, PY } = plan;
-    const dark = false; // Scene lighting is independent of system UI theme.
-
-    // floors
-    this.boxMesh(-.18,-.18,-.28,W+.36,D+.36,.26,0xb7b9b6,{rough:.85});
-    const floor = (x, y, w, d, color, tex) => {
-      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.9, map: tex || null });
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(x + w / 2, 0, y + d / 2);
-      m.receiveShadow = true;
-      this.room.add(m);
-    };
-    const planks = this.patternTexture((c, s) => {
-      c.fillStyle = dark ? '#4a3f35' : '#d4b68f'; c.fillRect(0, 0, s, s);
-      c.strokeStyle = dark ? 'rgba(0,0,0,.25)' : 'rgba(120,90,50,.10)'; c.lineWidth = 2;
-      for (let i = 0; i <= 4; i++) { c.beginPath(); c.moveTo(0, i * s / 4); c.lineTo(s, i * s / 4); c.stroke(); }
-      for (let i = 0; i < 4; i++) { const x = ((i * 37) % 4 + 0.5) * s / 4; c.beginPath(); c.moveTo(x, i * s / 4); c.lineTo(x, (i + 1) * s / 4); c.stroke(); }
-    });
-    const tiles = this.patternTexture((c, s) => {
-      c.fillStyle = dark ? '#3d4044' : '#f4f4f1'; c.fillRect(0, 0, s, s);
-      c.fillStyle = dark ? '#35383c' : '#e3e4e0'; c.fillRect(0, 0, s / 2, s / 2); c.fillRect(s / 2, s / 2, s / 2, s / 2);
-    });
-    planks.repeat.set(OW / 2, D / 2);
-    floor(0, 0, OW, D, 0xffffff, planks);
-    floor(OW, 0, W - OW, MR, dark ? 0x33404d : 0xbebfba);
-    tiles.repeat.set((W - OW), (PY - MR));
-    floor(OW, MR, W - OW, PY - MR, 0xffffff, tiles);
-    const planks2 = planks.clone(); planks2.needsUpdate = true; planks2.repeat.set((W - OW) / 2, (D - PY) / 2);
-    floor(OW, PY, W - OW, D - PY, 0xffffff, planks2);
-    const pp = plan.pp;
-    const mat = new THREE.Mesh(new THREE.PlaneGeometry(pp.x1 - pp.x0 + 1.2, 2.7), new THREE.MeshStandardMaterial({ color: dark ? 0x2f4a3a : 0xaec6b9, roughness: 1 }));
-    mat.rotation.x = -Math.PI / 2; mat.position.set((pp.x0 + pp.x1) / 2, 0.005, pp.y - 0.05); mat.receiveShadow = true;
-    this.room.add(mat);
-
-    // walls: back (z=0) with windows, left (x=0) with a door
-    const wallCol = dark ? 0x4a4640 : 0xdbdcd7;
-    const wallMat = new THREE.MeshStandardMaterial({ color: wallCol, roughness: 0.95 });
-    const T = 0.12;
-    let cx = -T;
-    const sky = { sky:0xadd9ee, sun:2.05, amb:.68, night:false };
-    const skyCanvas=document.createElement('canvas');skyCanvas.width=256;skyCanvas.height=192;
-    const skyCtx=skyCanvas.getContext('2d'),grad=skyCtx.createLinearGradient(0,0,0,192);
-    grad.addColorStop(0,'#6aadd7');grad.addColorStop(1,'#c7e7ed');skyCtx.fillStyle=grad;skyCtx.fillRect(0,0,256,192);
-    skyCtx.fillStyle='#9cbdcc';for(let i=0;i<10;i++){const h=20+(i*31%60);skyCtx.fillRect(i*29,192-h,22,h);}
-    skyCtx.fillStyle='#eef6f4';for(const [x,y] of [[40,35],[165,65]]){skyCtx.beginPath();skyCtx.roundRect(x,y,56,16,8);skyCtx.fill();skyCtx.beginPath();skyCtx.arc(x+23,y,14,0,Math.PI*2);skyCtx.fill();}
-    const skyTexture=new THREE.CanvasTexture(skyCanvas);skyTexture.colorSpace=THREE.SRGBColorSpace;
-    this.windowMat = new THREE.MeshBasicMaterial({map:skyTexture});
-    for (const wx of plan.windows) {
-      this.boxMesh(cx, -T, 0, wx - cx, T, WALL_H, 0, { mat: wallMat });
-      this.boxMesh(wx, -T, 0, 1.5, T, 0.85, 0, { mat: wallMat });
-      this.boxMesh(wx, -T, 2.0, 1.5, T, WALL_H - 2.0, 0, { mat: wallMat });
-      const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.15), this.windowMat);
-      glass.position.set(wx + 0.75, 1.425, -T / 2);
-      this.room.add(glass);
-      this.boxMesh(wx + 0.73, -0.02, 0.85, 0.04, 0.04, 1.15, dark ? 0x2b2926 : 0xcfc5b3);
-      this.boxMesh(wx, -0.02, 0.83, 1.5, 0.1, 0.04, dark ? 0x2b2926 : 0xcfc5b3);
-      cx = wx + 1.5;
+    const {W,D,desks}=this.plan;
+    this.clearRoom();this.room=new THREE.Group();this.scene.add(this.room);
+    this.room.name='instrument-workshop';
+    const ink=0x343c49,paper=0xf4f1eb,oak=0xa87856;
+    this.boxMesh(-.22,-.22,-.32,W+.44,D+.44,.30,0x76573f);
+    this.boxMesh(-.17,-.17,-.13,W+.34,D+.34,.12,oak);
+    const floorTex=this.patternTexture((c,s)=>{
+      c.fillStyle='#c5aa8e';c.fillRect(0,0,s,s);c.strokeStyle='#b2997d';c.lineWidth=1.5;
+      for(let y=0;y<=s;y+=32){c.beginPath();c.moveTo(0,y);c.lineTo(s,y);c.stroke();}
+      for(const [x,y] of [[22,0],[88,32],[48,64],[108,96]]){c.beginPath();c.moveTo(x,y);c.lineTo(x,y+32);c.stroke();}
+    });floorTex.repeat.set(W/3,D/3);
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({map:floorTex,roughness:1}));
+    floor.rotation.x=-Math.PI/2;floor.position.set(W/2,.003,D/2);floor.receiveShadow=true;this.room.add(floor);
+    this.boxMesh(-.14,-.14,0,W+.28,.18,2.12,0xdedbd5);
+    this.boxMesh(-.18,-.18,2.10,W+.36,.26,.08,paper);
+    this.boxMesh(-.14,0,0,.18,D-.95,.65,0xdedbd5);
+    this.boxMesh(-.18,0,.63,.26,D-.95,.06,paper);
+    this.boxMesh(.04,.02,.12,W-.08,.045,.10,0x8c99a8);
+    // The back wall reports observed state; it is never decorative fake telemetry.
+    this.telemetryBoard=this.textPlane('', '#212121',2.45,1.38);
+    this.telemetryBoard.position.set(1.62,1.23,.065);this.room.add(this.telemetryBoard);
+    this.boardStamp=null;
+    for(let i=0;i<3;i++){
+      const x=4.1+i*2.35;
+      this.boxMesh(x,.025,.85,1.75,.06,1.00,0xf9f6ee);
+      this.boxMesh(x+.07,.09,.93,1.61,.015,.84,0xc9dbe4,{emissive:0xdbe6eb,ei:.14,shadow:false});
+      this.boxMesh(x+.84,.105,.93,.035,.025,.84,paper,{shadow:false});
+      this.boxMesh(x-.08,.03,.80,1.91,.28,.08,paper);
     }
-    this.boxMesh(cx, -T, 0, W - cx, T, WALL_H, 0, { mat: wallMat });
-    const dy = plan.door.y;
-    this.boxMesh(-T, -T, 0, T, dy - 0.6 + T, WALL_H, 0, { mat: wallMat });
-    this.boxMesh(-T, dy + 0.6, 0, T, D - dy - 0.6, WALL_H, 0, { mat: wallMat });
-    this.boxMesh(-T, dy - 0.6, 1.8, T, 1.2, WALL_H - 1.8, 0, { mat: wallMat });
-    this.doorPivot = new THREE.Group();
-    this.doorPivot.position.set(-T + .02, 0, dy - .55);
-    this.room.add(this.doorPivot);
-    this.boxMesh(0, 0, 0, .06, 1.1, 1.78, dark ? 0x5c4431 : 0xa8825a, {group:this.doorPivot});
-    this.boxMesh(.065, .91, .78, .04, .12, .035, 0xb9bdba, {group:this.doorPivot, metal:.6});
-    this.boxMesh(0, dy - 0.6, 0, 0.9, 1.2, 0.01, dark ? 0x5a3b2e : 0xb9654a, { shadow: false });
-    // posters + whiteboard
-    for (const ps of plan.posters) {
-      const m = this.textPlane(ps.text === 'SHIP IT' ? 'ФОКУС' : 'КОМАНДА', ps.text==='SHIP IT'?'#515653':'#777b70', 0.9, 1.0);
-      m.rotation.y = Math.PI / 2; m.position.set(0.005, 1.45, ps.y + 0.45);
-      this.room.add(m);
+    // A source console, a low shelf and one task light make Dot's corner a
+    // recognisable place, separate from the current work islands.
+    this.boxMesh(.45,.52,0,2.35,.65,.62,0x536376);
+    this.boxMesh(.42,.48,.62,2.41,.73,.07,paper);
+    for(let i=0;i<3;i++)this.boxMesh(.62+i*.7,1.19,.18,.50,.018,.26,0xd6dce1,{shadow:false});
+    this.boxMesh(.55,2.00,0,.60,2.0,.82,0xa87856);
+    for(let i=0;i<3;i++){
+      this.boxMesh(.54,2.0,.18+i*.26,.64,2.0,.055,paper);
+      for(let j=0;j<3;j++)this.boxMesh(.60,2.15+j*.5,.23+i*.26,.28,.18,.18,[0x7c99b4,0xc98c6b,0x9a8cb0][(i+j)%3]);
     }
-    const wb = this.textPlane('', '#fdfdfb', 2.6, 1.15);
-    wb.position.set(OW + 3.7, 1.4, 0.005);
-    this.room.add(wb);
-    this.whiteboardScribbles(OW + 3.7);
-    const sign = this.textPlane('ВМЕСТЕ', dark ? '#4c4d49' : '#8e9189', 1.3, 0.3);
-    sign.position.set(OW + 1.1, 2.15, 0.005);
-    this.room.add(sign);
-
-    // desks
-    for (const dk of plan.desks) this.buildDesk(dk);
-
-    for (const p of plan.props) this.buildProp(p);
+    // Large, quiet floor zones replace a separate mat under every chair.
+    this.boxMesh(3.2,.72,.008,W-3.75,D-1.35,.014,0xc3cbd2,{shadow:false});
+    this.boxMesh(3.25,.77,.025,.035,D-1.45,.006,0x7a8b9c,{shadow:false});
+    for(let i=0;i<desks.length;i++){
+      if(i===0)this.buildDotStation(desks[i]);else this.buildDesk(desks[i],i);
+    }
+    // A standing review bench at the front gives the room an asymmetric edge.
+    this.boxMesh(W-3.1,D-.68,.72,2.55,.43,.09,paper);
+    for(const x of [W-2.9,W-.80])this.boxMesh(x,D-.61,0,.075,.27,.72,ink);
+    for(let i=0;i<3;i++)this.boxMesh(W-2.75+i*.65,D-.60,.82,.42,.26,.025,[0x7992b1,0xc09071,0x9c8cad][i],{shadow:false});
+    const dy=this.plan.door.y;
+    this.boxMesh(-.13,dy-.56,0,.14,.09,1.65,ink);
+    this.boxMesh(-.13,dy+.56,0,.14,.09,1.65,ink);
+    this.boxMesh(-.13,dy-.56,1.56,.14,1.21,.09,ink);
+    this.doorPivot=new THREE.Group();this.doorPivot.position.set(-.06,0,dy-.50);this.room.add(this.doorPivot);
+    this.boxMesh(0,0,.02,.075,1.04,1.50,0x8096af,{group:this.doorPivot});
+    this.boxMesh(.075,.83,.72,.04,.10,.045,paper,{group:this.doorPivot});
+    this.boxMesh(.06,dy-.60,.006,.60,1.20,.018,0xba8760,{shadow:false});
+    this.batchRoom();
     this.fitCamera3D(!this.fitted);
+  }
+
+  buildDotStation(desk) {
+    const {x,y}=desk;
+    // A dedicated observation dock. Unknown Dot is stationary here, not at a
+    // worker keyboard. Its muted indicators never imply live cloud activity.
+    this.boxMesh(x-.35,y-.25,.012,2.05,2.20,.035,0xaaa2b9,{shadow:false});
+    this.boxMesh(x-.20,y-.16,.05,1.75,.58,.42,0x635d72);
+    this.boxMesh(x-.24,y-.20,.47,1.83,.66,.07,0xe0d9e9);
+    const sign=this.textPlane('DOT / OBSERVATORY','#4b455b',1.55,.23);
+    sign.position.set(x+.67,.32,y+.435);this.room.add(sign);
+    this.boxMesh(x+1.37,y+.06,.54,.045,.045,1.12,0x4a4554);
+    this.boxMesh(x+1.15,y-.02,1.65,.49,.26,.12,0xc29370);
+    this.boxMesh(x+1.18,y+.01,1.64,.43,.20,.012,0xf0ddbb,{emissive:0xffe3b2,ei:.35,shadow:false});
+  }
+
+  updateTelemetryBoard() {
+    if(!this.telemetryBoard)return;
+    const all=this.telemetry?.sessions||[...this.people.values()].map(p=>p.s);
+    const working=all.filter(s=>['thinking','tool','typing'].includes(s.status)).length;
+    const waiting=all.filter(s=>s.status==='waiting'||s.status==='error').length;
+    const unknown=all.filter(s=>s.status==='unknown').length;
+    const stamp=[working,waiting,unknown,this.telemetry?.connected!==false].join('/');
+    if(stamp===this.boardStamp)return;this.boardStamp=stamp;
+    const tex=this.telemetryBoard.material.map,cv=tex.image,c=cv.getContext('2d');
+    c.fillStyle='#212121';c.fillRect(0,0,cv.width,cv.height);c.textAlign='left';c.textBaseline='top';
+    c.fillStyle='#ececec';c.font='700 18px sans-serif';c.fillText('СЕЙЧАС',18,14);
+    c.fillStyle='#b4b4b4';c.font='11px sans-serif';c.fillText(this.telemetry?.connected===false?'Поток недоступен':'По последним событиям',18,38);
+    for(const [i,label,value,color] of [[0,'Работают',working,'#9dc5ed'],[1,'Ждут',waiting,'#e8ba70'],[2,'Неизвестно',unknown,'#a8a8a8']]){
+      const x=18+i*80;c.fillStyle=color;c.font='700 29px sans-serif';c.fillText(String(value),x,65);c.fillStyle='#b4b4b4';c.font='10px sans-serif';c.fillText(label,x,102);
+    }
+    tex.needsUpdate=true;
   }
 
   patternTexture(paint) {
@@ -427,33 +467,32 @@ export class Office3D extends window.Office {
     this.room.add(g);
   }
 
-  buildDesk(dk) {
-    const { x, y } = dk;
-    this.boxMesh(x,y,.705,1.4,.8,.065,0xb68c64,{rough:.58});
-    for(const lx of [.08,1.24]) for(const ly of [.07,.66]) this.boxMesh(x+lx,y+ly,0,.07,.07,.705,0x575b59,{rough:.5,metal:.15});
-    const top = 0.75;
-    const back = dk.side === 's' ? y + 0.12 : y + 0.48;
-    const rot = dk.side === 's' ? 0 : Math.PI;
-    const mon = this.place('computerScreen', x + 0.4, back, 0.6, 0.2, { y0: top, h: 0.5, rot });
-    const kb = dk.side === 's' ? y + 0.45 : y + 0.2;
-    this.place('computerKeyboard', x + 0.45, kb, 0.5, 0.15, { y0: top, rot });
-    this.place('computerMouse', x + 1.0, kb, 0.08, 0.12, { y0: top, rot });
-    const h = (Math.round(x * 10) * 31 + Math.round(y * 10) * 17) >>> 0;
-    if (h % 3 === 0) this.place('plantSmall' + (1 + (h % 3)), x + 0.05, y + 0.3, 0.25, 0.25, { y0: top, h: 0.3 });
-    if (h % 4 === 1) this.place('lampSquareTable', x + 1.1, back, 0.25, 0.25, { y0: top, h: 0.35 });
-    // chair, facing the desk
-    const seat = dk.seat;
-    const chair=this.place('chairDesk', seat.x - 0.3, seat.y - 0.3, 0.6, 0.6, { h: 0.9, rot: dk.side === 's' ? Math.PI : 0 });
-    if(chair)chair.traverse(o=>{if(o.isMesh){o.material=o.material.clone();const c=o.material.color;if(c && c.r>c.b*1.15){c.setHex(0x777f7b);o.material.roughness=.85;}}});
-    // The monitor's own screen quad lights up in the worker's status colour.
-    if (mon) {
-      let quad = null;
-      mon.traverse((o) => { if (o.isMesh && o.geometry.attributes.position.count === 4) quad = o; });
-      if (quad) {
-        quad.material = new THREE.MeshStandardMaterial({ color: 0x1b1e24, emissive: 0x000000, roughness: 0.35 });
-        this.screens.set(dk, quad);
-      }
-    }
+  buildDesk(dk,index=0) {
+    const {x,y}=dk,ink=0x414b5a,paper=0xfffdf9,oak=0xb88660;
+    // A coloured floor bay separates workers at overview scale, while the
+    // station itself is a compact instrument table with an exposed status face.
+    // Shared floor islands keep the workstation area visually coherent.
+    this.boxMesh(x-.14,y+1.91,.030,1.83,.035,.006,0xe9eef4,{shadow:false});
+    this.boxMesh(x,y,.68,1.55,.77,.10,paper,{rough:.9});
+    this.boxMesh(x+.04,y+.03,.635,1.47,.71,.035,oak);
+    for(const side of [.10,1.35])this.boxMesh(x+side,y+.10,0,.09,.52,.68,ink);
+    this.boxMesh(x+.11,y+.56,.19,1.30,.08,.07,ink);
+    // All monitors face the front, so faces and work signals stay readable from
+    // the initial camera. No bitmap screen animations or per-frame textures.
+    this.boxMesh(x+.42,y+.22,.78,.08,.16,.15,ink);
+    this.boxMesh(x+.20,y+.20,.90,.69,.11,.43,ink);
+    this.boxMesh(x+.245,y+.312,.955,.60,.015,.31,0xe3e9f1,{shadow:false});
+    const screen=this.boxMesh(x+.275,y+.329,1.005,.54,.010,.22,0x233346,{shadow:false,uniqueMaterial:true});
+    screen.material.emissive=new THREE.Color(0x000000);this.screens.set(dk,screen);
+    this.boxMesh(x+.27,y+.46,.785,.60,.20,.025,0x8999ad,{shadow:false});
+    // The task lamp is a solid soft-lit prop, not a costly point light per bay.
+    this.boxMesh(x+1.24,y+.28,.78,.15,.17,.025,ink);
+    this.boxMesh(x+1.30,y+.32,.79,.035,.035,.40,ink);
+    this.boxMesh(x+1.18,y+.29,1.18,.26,.18,.08,0xe6aa65);
+    this.boxMesh(x+1.20,y+.31,1.17,.22,.14,.012,0xffeed0,{emissive:0xffd99b,ei:.35,shadow:false});
+    // Stool remains below the body and does not occlude picking at an orbit.
+    this.boxMesh(dk.seat.x-.20,dk.seat.y-.18,.27,.40,.36,.085,oak);
+    for(const lx of [-.14,.12])for(const ly of [-.12,.10])this.boxMesh(dk.seat.x+lx,dk.seat.y+ly,0,.04,.04,.27,ink);
   }
 
   buildProp(p) {
@@ -1097,18 +1136,17 @@ export class Office3D extends window.Office {
   actorFor(p) {
     let a = this.actors.get(p.key);
     if (a) return a;
-    const gltf = this.chars[p.h % this.chars.length];
-    const procedural = p.s.agent === 'dot' || p.s.agent === 'codex';
-    const obj = p.s.agent === 'dot' ? this.dotModel() : p.s.agent === 'codex' ? this.codexModel() : cloneSkinned(gltf.scene);
+    const procedural=true;
+    const obj=p.s.agent==='dot'?this.dotModel():workerMascot(p.s.agent,p.h);
     obj.userData.sessionKey=p.key;
     obj.traverse(o=>{if(o.isMesh){o.userData.sessionKey=p.key;o.userData.sharedMascot=procedural;}});
-    obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    obj.traverse((o) => { if (o.isMesh) { o.castShadow = !o.userData.outline; o.receiveShadow = !o.userData.outline; } });
     const box = new THREE.Box3().setFromObject(obj);
     const s = CHAR_HEIGHT * (p.s && p.s.subagent ? 0.94 : 1) / (box.max.y - box.min.y);
     obj.scale.setScalar(s);
     const mixer = new THREE.AnimationMixer(obj);
     const actions = {};
-    if (!procedural) for (const clip of gltf.animations) actions[clip.name] = mixer.clipAction(clip);
+
     let head = null, armR = null;
     obj.traverse((o) => { if (o.name === 'head') head = o; if (o.name === 'arm-right') armR = o; });
     const prop = new THREE.Group();
@@ -1118,9 +1156,10 @@ export class Office3D extends window.Office {
     const halo=new THREE.Mesh(new THREE.RingGeometry(.38,.43,40),new THREE.MeshBasicMaterial({color:0x858882,transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));
     halo.rotation.x=-Math.PI/2;halo.visible=false;
     this.scene.add(obj, prop, halo);
-    a = { obj, halo, procedural, bounds: new THREE.Box3(), labelAnchor:obj.getObjectByName('label-anchor'), anchor:new THREE.Vector3(), mixer, actions, current: null, head, headRest: head ? head.rotation.x : 0, armR, prop, cup, book, yaw: 0, last: { x: p.x, y: p.y } };
-    a.pickMeshes=[];obj.traverse(o=>{if(o.isMesh)a.pickMeshes.push(o);});
+    a = { obj, halo, procedural, localBounds:box.clone(), bounds: new THREE.Box3(), labelAnchor:obj.getObjectByName('label-anchor'), anchor:new THREE.Vector3(), mixer, actions, current: null, head, headRest: head ? head.rotation.x : 0, armR, prop, cup, book, yaw: 0, last: { x: p.x, y: p.y } };
+    a.pickMeshes=[];a.signals=[];obj.traverse(o=>{if(o.isMesh&&!o.userData.outline)a.pickMeshes.push(o);if(o.userData.signal)a.signals.push(o);});
     a.limbs=['arm-left','arm-right','leg-left','leg-right'].map(name=>obj.getObjectByName(name));
+    if(this.outlinesEnabled===false)obj.traverse(o=>{if(o.userData.outline)o.visible=false;});
     this.actors.set(p.key, a);
     return a;
   }
@@ -1168,12 +1207,15 @@ export class Office3D extends window.Office {
       if (st.act === 'station') chosen = p.s.status === 'thinking' ? 'idle' : (p.desk.anim || 'interact-right');
       else if (st.pose !== 'walk' && p.poi && p.poi.anim) chosen = p.poi.anim;
       this.play(a, chosen);
-      if (!this.reducedMotion) a.mixer.update(dt);
+      if (!this.reducedMotion && !this.motionPaused) a.mixer.update(dt);
+      const statusColor=STATUS_COLOR[p.s.status]||0xb5bbc6;
+      for(const signal of a.signals){signal.material.color.setHex(statusColor);}
       if(a.procedural){
         const walking=st.pose==='walk'&&!this.reducedMotion&&!this.motionPaused&&this.focusedKey!==p.key;
         for(const side of ['left','right']){
           const limb=a.obj.getObjectByName('arm-'+side),leg=a.obj.getObjectByName('leg-'+side);
-          const swing=walking ? Math.sin(this.t*.009+p.phase)*(side==='left'?1:-1)*.28 : 0;
+          const busy=['tool','typing'].includes(p.s.status)&&!p.path.length&&!this.reducedMotion&&!this.motionPaused;
+          const swing=walking?Math.sin(this.t*.009+p.phase)*(side==='left'?1:-1)*.28:busy?-.32+Math.sin(this.t*.006+p.phase+(side==='left'?0:Math.PI))*.055:0;
           if(limb)limb.rotation.x=swing;
           if(leg)leg.rotation.x=-swing*.8;
         }
@@ -1204,7 +1246,8 @@ export class Office3D extends window.Office {
       }
       const baseY = a.procedural && st.pose==='sit' ? Math.max(0,seatY-.22) : seatY;
       a.obj.position.set(p.x + Math.sin(a.yaw) * fwd, baseY + lift, p.y + Math.cos(a.yaw) * fwd);
-      a.halo.visible = this.selectedKey===p.key || this.hoverKey===p.key;
+      a.halo.visible = this.selectedKey===p.key || this.hoverKey===p.key || ['waiting','error'].includes(p.s.status);
+      a.halo.material.color.setHex(['waiting','error'].includes(p.s.status)?STATUS_COLOR[p.s.status]:0x9b9b9b);
       a.halo.position.set(a.obj.position.x,.016,a.obj.position.z);
       if (a.head) {
         if (st.act === 'nap') { a.head.rotation.x = a.headRest + 0.55; a.napped = true; }
@@ -1294,8 +1337,8 @@ export class Office3D extends window.Office {
     const t = this.reducedMotion ? 0 : this.t / 1000;
 
     // Stable studio lighting keeps mascots legible in either UI appearance.
-    if (!this.plan.scene) this.scene.background.setHex(this.pal.dark ? 0x343433 : 0xdfdfdc);
-    const sky = { sky:0xadd9ee, sun:2.05, amb:.68, night:false };
+    if (!this.plan.scene) this.scene.background.setHex(this.pal.dark ? 0x212121 : 0xedf0f3);
+    const sky = { sky:0xf4f6fa, sun:2.8, amb:2.2, night:false };
     this.sun.intensity = sky.sun;
     this.hemi.intensity = sky.amb;
     if (this.windowMat && !this.windowMat.isMeshBasicMaterial) {
@@ -1312,7 +1355,7 @@ export class Office3D extends window.Office {
       const p = occupant.get(dk);
       const col = p ? STATUS_COLOR[p.s.status] : null;
       if (col) {
-        const pulse = p.s.status === 'thinking' ? 0.5 + 0.35 * Math.sin(t * 3 + p.phase) : 0.8 + 0.2 * Math.sin(t * 9 + p.phase);
+        const pulse = .32;
         scr.material.emissive.setHex(col);
         scr.material.emissiveIntensity = pulse;
       } else {
@@ -1334,6 +1377,7 @@ export class Office3D extends window.Office {
     }
 
     this.syncActors(dt);
+    this.updateTelemetryBoard();
     if (this.insetMoving() || this.insetSettling) { this.fitCamera3D(false); this.insetSettling = this.insetMoving(); }
     this.controls.update();
     this.gl.render(this.scene, this.camera);
@@ -1342,56 +1386,96 @@ export class Office3D extends window.Office {
     if(this._pointerClient && !this._orbiting && !this._pointerDown && (!this.lastHoverPick || performance.now()-this.lastHoverPick>80)){
       this.lastHoverPick=performance.now();
       const key=this.pickAt(this._pointerClient.x,this._pointerClient.y);
-      if(key!==this.hoverKey){this.hoverKey=key;const p=key&&this.people.get(key);this.onHover(p?p.s:null,key?this.getAnchor(key):null,false);}
+      if(key!==this.hoverKey){this.hoverKey=key;const p=key&&this.people.get(key);this.onHover(p?p.s:null,key?(this.getAnchor(key)||{x:this._pointerClient.x,y:this._pointerClient.y}):null,false);}
     }
   }
 
   drawAgentOverlay(c) {
     this.hit=[];this.labels=[];this.anchors.clear();this.pickTargets=[];
-    const projected=[];
+    const projected=[],bodies=[];
     const rect=this.canvas.getBoundingClientRect();
     const maxX=this.cw-this.inset();
     for(const p of this.people.values()){
       const a=this.actors.get(p.key);if(!a)continue;
+      this.pickTargets.push(...a.pickMeshes);
       if(a.labelAnchor)a.labelAnchor.getWorldPosition(a.anchor);
       else {a.bounds.setFromObject(a.obj);a.bounds.getCenter(a.anchor);a.anchor.y=a.bounds.max.y+.1;}
       const v=a.anchor.clone().project(this.camera);
       if(v.z < -1 || v.z > 1)continue;
       const x=(v.x+1)*.5*this.cw,y=(1-v.y)*.5*this.ch;
       if(x<0||x>maxX||y<0||y>this.ch)continue;
+      const body={x0:Infinity,y0:Infinity,x1:-Infinity,y1:-Infinity};
+      for(const bx of [a.localBounds.min.x,a.localBounds.max.x])for(const by of [a.localBounds.min.y,a.localBounds.max.y])for(const bz of [a.localBounds.min.z,a.localBounds.max.z]){
+        const point=new THREE.Vector3(bx,by,bz).applyMatrix4(a.obj.matrixWorld).project(this.camera),sx=(point.x+1)*.5*this.cw,sy=(1-point.y)*.5*this.ch;
+        body.x0=Math.min(body.x0,sx);body.x1=Math.max(body.x1,sx);body.y0=Math.min(body.y0,sy);body.y1=Math.max(body.y1,sy);
+      }
+      bodies.push(body);
       this.anchors.set(p.key,{x:x+rect.left,y:y+rect.top,localX:x,localY:y,depth:v.z});
-      this.pickTargets.push(...a.pickMeshes);
       const hot=this.hoverKey===p.key||this.selectedKey===p.key;
       const attention=p.s.status==='waiting'||p.s.status==='error'||p.arriving;
       projected.push({p,a,x,y,z:v.z,hot,attention});
     }
-    const occupied=[];
-    // Priority first for collision layout; later draw nearest on top.
-    projected.sort((a,b)=>Number(b.hot)-Number(a.hot)||Number(b.attention)-Number(a.attention)||a.z-b.z);
+    const all=this.telemetry?.sessions||[...this.people.values()].map(p=>p.s);
+    const working=all.filter(s=>['thinking','tool','typing'].includes(s.status)).length;
+    const waiting=all.filter(s=>['waiting','error'].includes(s.status)).length;
+    const unknown=all.filter(s=>s.status==='unknown').length;
+    const hudWidth=Math.min(350,maxX-32),hudHeight=56;
+    if(hudWidth>200){
+      c.fillStyle=this.pal.dark?'rgba(23,23,23,.94)':'rgba(255,255,255,.94)';
+      c.beginPath();c.roundRect(16,16,hudWidth,hudHeight,8);c.fill();
+      c.textAlign='left';c.textBaseline='top';c.fillStyle=this.pal.dark?'#ececec':'#292929';c.font='600 12px "Bureau Sans",sans-serif';
+      c.fillText(`${working} работают  ·  ${waiting} ждут  ·  ${unknown} неизвестно`,28,27,hudWidth-24);
+      c.fillStyle=this.pal.dark?'#b4b4b4':'#626262';c.font='11px "Bureau Sans",sans-serif';
+      c.fillText(this.telemetry?.connected===false?'Поток потерян · статусы не подтверждены':'По событиям источников · выберите персонажа',28,47,hudWidth-24);
+    }
+    const occupied=[...bodies,...(hudWidth>200?[{x0:16,x1:16+hudWidth,y0:16,y1:16+hudHeight}]:[])];
+    // Selected/waiting agents and the coordinator win collisions. Details are
+    // actual source fields, not made-up task progress or productivity scores.
+    projected.sort((a,b)=>Number(b.hot)-Number(a.hot)||Number(b.attention)-Number(a.attention)||Number(b.p.s.agent==='dot')-Number(a.p.s.agent==='dot')||a.z-b.z);
     const accepted=[];
+    const trim=(text,width)=>{let s=String(text||'').replace(/\s+/g,' ');while(c.measureText(s).width>width&&s.length>2)s=s.slice(0,-2)+'…';return s;};
     for(const q of projected){
-      const {p,x,y,hot,attention}=q;
-      c.font='600 11px system-ui, sans-serif';
-      let text=(p.arriving ? '+ ' : '')+(this.label(p.s)||p.s.agent);
-      while(c.measureText(text).width>144&&text.length>2)text=text.slice(0,-2)+'…';
-      const show=hot||(this.showAgent&&(attention||(!p.s.subagent&&p.s.agent!=='dot')));
-      const w=show?Math.max(56,c.measureText(text).width+30):18,h=show?24:18;
-      const r={x0:x-w/2,x1:x+w/2,y0:y-h-6,y1:y-6,key:p.key,z:q.z};
-      const collide=occupied.some(o=>r.x0<o.x1+4&&r.x1>o.x0-4&&r.y0<o.y1+3&&r.y1>o.y0-3);
-      if(collide&&!hot)continue;
+      const {p,x,y,hot,attention}=q,s=p.s;
+      const show=hot||(this.showAgent&&(attention||!s.subagent||s.agent==='dot'));
+      const full=show&&(projected.length<=12||hot||attention||s.agent==='dot');
+      const states={thinking:'Обдумывает',tool:'Инструмент',typing:'Пишет ответ',waiting:'Нужен ответ',error:'Ошибка',unknown:'Неизвестно'};
+      c.font='600 11px "Bureau Sans",sans-serif';
+      const text=trim((p.arriving?'+ ':'')+(s.agent==='dot'?'Dot':this.label(s)||s.agent),174);
+      const at=s.presence?.observedAt||s.lastEventAt,age=Number.isFinite(at)?Math.max(0,Math.floor((Date.now()-(this.telemetry?.skew||0)-at)/1000)):null;
+      const time=age===null?'':age<60?`${age}с`:age<3600?`${Math.floor(age/60)}м`:`${Math.floor(age/3600)}ч`;
+      const status=s.agent==='dot'?'Live-статус недоступен':`${states[s.status]||s.status} · ${s.presence?.live?'live':s.presence?.source==='demo'?'демо':'журнал'}${time?' '+time:''}`;
+      c.font='10px "Bureau Sans",sans-serif';
+      const detail=trim(s.agent==='dot'?'Субагенты: недоступно':s.activity||s.prompt||s.model||'',174);
+      const w=show?Math.max(160,Math.min(204,Math.max(c.measureText(text).width,c.measureText(status).width,c.measureText(detail).width)+28)):18;
+      const h=show?(full&&detail?57:full?43:24):18;
+      const r={x0:x-w/2,x1:x+w/2,y0:y-h-8,y1:y-8,key:p.key,z:q.z};
+      const overlaps=box=>occupied.some(o=>box.x0<o.x1+4&&box.x1>o.x0-4&&box.y0<o.y1+3&&box.y1>o.y0-3);
+      if(overlaps(r)){
+        let placed=false;
+        for(const [dx,dy] of [[0,-h-6],[-w/2,-h/2],[w/2,-h/2],[0,-2*h-12],[-w,-h],[w,-h],[0,h+12]]){
+          const moved={...r,x0:r.x0+dx,x1:r.x1+dx,y0:r.y0+dy,y1:r.y1+dy};
+          if(moved.x0>=4&&moved.x1<=maxX-4&&moved.y0>=4&&moved.y1<this.ch-75&&!overlaps(moved)){Object.assign(r,moved,{leader:true});placed=true;break;}
+        }
+        if(!placed)continue;
+      }
       if(r.x0<4||r.x1>maxX-4||r.y0<4)continue;
-      occupied.push(r);accepted.push({...q,r,text,show});
+      occupied.push(r);accepted.push({...q,r,text,show,full,status,detail});
     }
     accepted.sort((a,b)=>b.z-a.z);
-    for(const {p,r,text,show,hot} of accepted){
-      const tone={thinking:'#a88ce8',tool:'#62a1df',typing:'#53ad88',waiting:'#d8a348',error:'#e67c6d',done:'#82ad6c',unknown:'#92928c',idle:'#92928c'}[p.s.status]||'#92928c';
-      c.fillStyle=hot?'#373936':'rgba(247,247,243,.96)';
-      c.beginPath();c.roundRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0,8);c.fill();
-      c.strokeStyle=hot?'#a9ada4':'rgba(60,63,58,.22)';c.lineWidth=hot?1.5:1;c.stroke();
-      c.fillStyle=tone;c.beginPath();c.arc(r.x0+(show?12:9),(r.y0+r.y1)/2,3.5,0,Math.PI*2);c.fill();
-      if(show){c.fillStyle=hot?'#f7f7f3':'#363a35';c.textAlign='left';c.textBaseline='middle';c.font='600 11px system-ui,sans-serif';c.fillText(text,r.x0+22,(r.y0+r.y1)/2+.5);}
+    for(const {p,r,text,show,full,status,detail,hot,x,y} of accepted){
+      if(r.leader){c.strokeStyle=this.pal.dark?'#9999':'#6669';c.lineWidth=1;c.beginPath();c.moveTo(x,y);c.lineTo((r.x0+r.x1)/2,r.y1);c.stroke();}
+      const tone={thinking:'#b79bdb',tool:'#81b4df',typing:'#85bea7',waiting:'#e2b362',error:'#e68d91',unknown:'#a0a0a0'}[p.s.status]||'#a0a0a0';
+      c.fillStyle=this.pal.dark?(hot?'#393939':'rgba(33,33,33,.96)'):(hot?'#e7e7e7':'rgba(250,250,250,.97)');
+      c.beginPath();c.roundRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0,7);c.fill();
+      c.strokeStyle=hot||['waiting','error'].includes(p.s.status)?tone:this.pal.dark?'#565656':'#bdbdbd';c.lineWidth=hot?1.5:1;c.stroke();
+      c.fillStyle=tone;c.beginPath();c.arc(r.x0+(show?11:9),r.y0+(show?12:9),3,0,Math.PI*2);c.fill();
+      if(show){
+        c.fillStyle=this.pal.dark?'#ececec':'#292929';c.textAlign='left';c.textBaseline='top';c.font='600 11px "Bureau Sans",sans-serif';c.fillText(text,r.x0+21,r.y0+5);
+        if(full){c.fillStyle=tone;c.font='10px "Bureau Sans",sans-serif';c.fillText(status,r.x0+10,r.y0+23,r.x1-r.x0-20);if(detail){c.fillStyle=this.pal.dark?'#b4b4b4':'#626262';c.fillText(detail,r.x0+10,r.y0+39,r.x1-r.x0-20);}}
+      }
       this.labels.push(r);this.hit.push(r);
     }
+
   }
 
   getAnchor(key) { return this.anchors.get(key)||null; }
@@ -1404,11 +1488,20 @@ export class Office3D extends window.Office {
     this.controls.target.copy(target);
     this.camera.position.set(target.x+Math.sin(yaw)*25,target.y+18,target.z+Math.cos(yaw)*25);
     this.camera.zoom=2.7;this.camera.lookAt(target);this.camera.updateMatrixWorld(true);this.camera.updateProjectionMatrix();
-    const projected=target.clone().project(this.camera),actualX=(projected.x+1)*.5*this.cw,actualY=(1-projected.y)*.5*this.ch;
-    const desiredX=(this.cw-this.inset())*.5,desiredY=this.ch*.5;
-    const right=new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld,0),up=new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld,1);
-    const shift=right.multiplyScalar((actualX-desiredX)*(this.camera.right-this.camera.left)/this.camera.zoom/this.cw).add(up.multiplyScalar((desiredY-actualY)*(this.camera.top-this.camera.bottom)/this.camera.zoom/this.ch));
-    this.camera.position.add(shift);this.controls.target.add(shift);this.controls.update();return true;
+    // Keep the orbit pivot on the actual character. Move the off-centre
+    // frustum for the sidebar instead of shifting camera and target in world
+    // space (that made a focused orbit rotate the whole room out of view).
+    const width=this.camera.right-this.camera.left,height=this.camera.top-this.camera.bottom;
+    const center=width*this.inset()/(2*this.cw*this.camera.zoom);
+    this.camera.left=center-width/2;
+    this.camera.right=center+width/2;
+    this.camera.top=height/2;this.camera.bottom=-height/2;
+    this.camera.updateProjectionMatrix();this.controls.update();return true;
+  }
+
+  setOutlines(enabled) {
+    this.outlinesEnabled=!!enabled;
+    for(const actor of this.actors.values())actor.obj.traverse(o=>{if(o.userData.outline)o.visible=!!enabled;});
   }
 
   resetView() { this.selectedKey=null;this.focusedKey=null;this.fitCamera3D(true);this.controls.update(); }

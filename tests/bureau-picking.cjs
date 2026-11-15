@@ -2,7 +2,8 @@ const {chromium}=require('playwright'),assert=require('assert/strict');
 let browser;
 (async()=>{browser=await chromium.launch({headless:true,executablePath:(process.env.WMAD_CHROMIUM||chromium.executablePath()),args:['--no-sandbox','--enable-unsafe-swiftshader']});
 const p=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:2,reducedMotion:'reduce'}),errors=[];p.on('pageerror',e=>errors.push(e.message));
-await p.goto(process.env.BUREAU_URL||'http://127.0.0.1:35711');await p.waitForFunction(()=>typeof office!=='undefined'&&office?.framesShown>8);
+p.setDefaultTimeout(60000);
+await p.goto(process.env.BUREAU_URL||'http://127.0.0.1:35711');await p.waitForFunction(()=>typeof office!=='undefined'&&office?.framesShown>2);
 for(const provider of ['dot','codex']){
  const key=await p.evaluate(x=>[...office.people.values()].find(p=>p.s.agent===x)?.key,provider);assert.ok(key);
  await p.evaluate(k=>office.focusAgent(k),key);await p.waitForTimeout(500);

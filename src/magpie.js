@@ -117,6 +117,7 @@ class Magpie extends EventEmitter {
         s.title = clean(text(row.title, 4096));
         s.startedAt = time(row.start);
         s.lastEventAt = time(row.last);
+        s.statusObservedAt = s.lastEventAt;
         s.parentId = identity(row.agent, row.parent_session) ? row.parent_session : null;
         s.subagent = row.role === 'subagent' || !!s.parentId;
         // A list of lifetime token totals does not identify the current model.
@@ -138,12 +139,18 @@ class Magpie extends EventEmitter {
         }
         s.model = text(route.model) || s.model;
         s.lastEventAt = Math.max(s.lastEventAt || 0, time(route.time) || 0);
-        if (trace.mine === true && route.done === false) s.status = 'thinking';
+        if (trace.mine === true && route.done === false) {
+          s.status = 'thinking';
+          // A freshly polled in-flight request is stronger evidence than its
+          // start timestamp, which can legitimately be many minutes old.
+          s.liveObservedAt = s.statusObservedAt = Date.now();
+        }
         // shortcut: gateway-only chats are idle between requests; use native
         // logs until Magpie exposes tool, approval and turn-completion events.
       }
       if (this.stopped) return;
       this.rows = [...rows.values()];
+      this.lastPolledAt = Date.now();
       this.error = null;
     } catch (err) {
       this.controller.abort();
@@ -152,7 +159,7 @@ class Magpie extends EventEmitter {
       const message = /^HTTP \d{3}$/.test(err.message) ? err.message : 'API unavailable or invalid response';
       if (message !== this.error) this.emit('warning', message);
       this.error = message;
-      this.rows = this.rows.map((s) => ({ ...s, status: 'idle' }));
+      this.rows = this.rows.map((s) => ({ ...s, status: 'idle', liveObservedAt: null }));
     } finally {
       clearTimeout(timeout);
     }

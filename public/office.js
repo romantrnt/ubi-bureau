@@ -71,7 +71,7 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   function palette() {
-    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const dark = typeof document !== 'undefined' && document.documentElement?.dataset?.theme === 'dark';
     return dark ? {
       dark: true,
       wood1: '#4a3f35', wood2: '#453a31', woodLine: 'rgba(0,0,0,.22)',
@@ -230,6 +230,7 @@
       this.theme = matchMedia('(prefers-color-scheme: dark)');
       this.onTheme = () => (this.pal = palette());
       this.theme.addEventListener('change', this.onTheme);
+      window.addEventListener?.('bureau-theme', this.onTheme);
 
       this.ro = new ResizeObserver(() => this.resize());
       this.ro.observe(root);
@@ -251,6 +252,7 @@
       cancelAnimationFrame(this.raf);
       this.ro.disconnect();
       this.theme.removeEventListener('change', this.onTheme);
+      window.removeEventListener?.('bureau-theme', this.onTheme);
       this.canvas.remove();
     }
 
@@ -485,7 +487,19 @@
 
     // ------------------------------------------------------------ sessions → people
 
-    update(sessions) {
+    update(sessions, { snapshot } = {}) {
+      if (snapshot) {
+        const latest = new Map(snapshot.map(s => [s.key, s]));
+        for (const [key, p] of this.people) {
+          const current = latest.get(key);
+          if (current) p.s = current;
+          // Completion, lost evidence and disappearance retire the body now.
+          // An exit walk must not retain a previous working/live claim.
+          if (!current || (current.agent !== 'dot' && (!WORKING.has(current.status) || (current.status === 'error' && current.presence?.stale)))) {
+            this.release(p);this.people.delete(key);this.deskOf.delete(key);
+          }
+        }
+      }
       const working = sessions.filter((s) => s.agent === 'dot' || WORKING.has(s.status));
       const off = sessions
         .filter((s) => s.agent !== 'dot' && !WORKING.has(s.status))
@@ -507,9 +521,9 @@
       // Fill the desks that face us first so more faces and screens show.
       const desks = this.plan.desks;
       const order = desks.map((d, i) => i).sort((a, b) => (desks[a].side === 's') - (desks[b].side === 's') || a - b);
-      for (const s of [...working].sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0))) {
+      for (const s of [...working].sort((a, b) => Number(b.agent === 'dot') - Number(a.agent === 'dot') || (a.startedAt || 0) - (b.startedAt || 0))) {
         if (this.deskOf.has(s.key)) continue;
-        const i = order.find((n) => !used.has(n));
+        const i = order.find((n) => !used.has(n) && (!desks[n].reservedFor || desks[n].reservedFor === s.agent));
         if (i == null) continue;
         this.deskOf.set(s.key, i);
         used.add(i);
@@ -528,7 +542,13 @@
         if (isWorker) {
           this.release(p);
           const desk = desks[this.deskOf.get(s.key)];
-          if (p.desk !== desk || p.mode !== 'work') { p.desk = desk; this.goTo(p, desk.seat); }
+          if (p.desk !== desk || p.mode !== 'work') {
+            p.desk = desk;
+            // A snapshot-only coordinator has no observed movement or task.
+            // Keep it at its dock even when the room grows around it.
+            if (s.agent === 'dot') { p.placeOnArrive = true; p.arriving = false; }
+            this.goTo(p, desk.seat);
+          }
           p.mode = 'work';
         } else {
           if (p.mode !== 'wander') { p.mode = 'wander'; p.desk = null; p.poi = null; p.until = 0; }

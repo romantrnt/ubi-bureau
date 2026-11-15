@@ -60,6 +60,8 @@ npm run test:bureau
 python3 -m unittest discover -s tests -p 'test_*.py'
 # Explicit native demo smoke, opens and closes its own QA window:
 GDK_BACKEND=wayland BUREAU_PORT=0 python3 tests/native-smoke.py
+GDK_BACKEND=wayland BUREAU_PORT=0 python3 tests/native-acceptance.py
+GDK_BACKEND=wayland BUREAU_PORT=0 python3 tests/native-scene.py
 ```
 
 `npm ci` installs pinned development dependencies, including esbuild, Three.js and Playwright. UI tests need a compatible Chromium installation; configure `WMAD_CHROMIUM` when applicable. Browser binaries are separate from the npm package. Use synthetic fixtures and isolated test state, never copies of real conversations.
@@ -77,10 +79,10 @@ The build produces the x86_64 AppImage under `dist/`. The package includes the a
 The packaging process uses the official AppImage Type 2 runtime and Node.js distribution, checking their pinned digests before use. Building requires the download tools used by the packaging script plus `mksquashfs` from squashfs-tools and tools to unpack the Node archive. Review the script and its pinned runtime source before changing the pin.
 
 ```sh
-chmod +x dist/Ubi_Bureau-0.2.0-x86_64.AppImage
-dist/Ubi_Bureau-0.2.0-x86_64.AppImage --version
-dist/Ubi_Bureau-0.2.0-x86_64.AppImage --check
-dist/Ubi_Bureau-0.2.0-x86_64.AppImage --demo
+chmod +x dist/Ubi_Bureau-0.3.0-x86_64.AppImage
+dist/Ubi_Bureau-0.3.0-x86_64.AppImage --version
+dist/Ubi_Bureau-0.3.0-x86_64.AppImage --check
+dist/Ubi_Bureau-0.3.0-x86_64.AppImage --demo
 ```
 
 The native app is single-instance. Close its window before relaunching with different data/privacy flags; activating an existing window does not change its mode.
@@ -92,7 +94,7 @@ If FUSE is unavailable, use `--appimage-extract-and-run`. Extraction does not pr
 - **`gi` missing or WebKit namespace unavailable:** install the distribution's Python GObject/GTK4/WebKitGTK 6.0 packages and use the matching system Python.
 - **Blank office or 3D error:** check WebGL/graphics-driver support. This interface is 3D-first; an error is not silently represented as a working scene.
 - **No agents:** confirm that supported local clients have written readable session records. Client format changes or a different home directory can prevent discovery. Do not run the app as root to work around this.
-- **No Dot agents:** this release does not connect to a cloud API. Read [Dot snapshots](DOT.md).
+- **Dot status unavailable:** one coordinator is shown, but this release does not connect to a cloud API. Read [Dot snapshots](DOT.md).
 - **Codex button does nothing:** a compatible `codex://` desktop handler must already be installed. The app does not install a handler or guarantee the destination application's behavior.
 - **Port in use:** stop only the instance you own, or choose a separate browser-mode port. Do not terminate unrelated servers.
 

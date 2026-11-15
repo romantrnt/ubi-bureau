@@ -57,6 +57,7 @@ function session(agent, id, fields) {
   // Both clients record a turn's start and end, so silence never has to be
   // interpreted: keep the status the last message gives.
   s.explicitLifecycle = true;
+  s.telemetrySource = 'database';
   s.parentId = fields.parentId || null;
   s.subagent = !!fields.parentId;
   s.cwd = fields.cwd || null;
@@ -69,6 +70,7 @@ function session(agent, id, fields) {
   s.error = fields.error || null;
   s.turnStartedAt = fields.turnStartedAt || null;
   s.lastEventAt = fields.lastEventAt || null;
+  s.statusObservedAt = s.lastEventAt;
   s.startedAt = fields.startedAt || null;
   return s;
 }

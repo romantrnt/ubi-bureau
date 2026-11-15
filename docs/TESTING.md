@@ -1,20 +1,25 @@
-# Release verification: 0.2.0
+# Release verification: 0.3.0
 
-Source checks on 2026-11-15 used one Arch Linux x86_64 GNOME/Wayland machine. This is not multi-distribution certification. Artifact checks and the exact released source commit are recorded on the [release page](https://github.com/romantrnt/ubi-bureau/releases/tag/v0.2.0); passing source tests is not proof that a later package or CI run passed.
+Source checks on 2026-11-15 used one Arch Linux x86_64 GNOME/Wayland machine. Artifact verification, the exact source commit and its GitHub Actions result belong to the [release page](https://github.com/romantrnt/ubi-bureau/releases/tag/v0.3.0). A source pass does not establish that a later package passed.
 
-## Passed on the final integrated source
+## Source acceptance evidence
 
-- `npm test`: **124 tests** covering provider/watchers, HTTP/privacy, transcripts, hooks/usage, dated Dot snapshots, scene lifecycle and signed updates.
-- `npm run build`: the checked-in web bundle matches the source and lockfile toolchain.
-- **Two native-policy tests**, including canonical UUIDs and blocked external/file/script navigation.
-- **Seven browser suites**: UI/keyboard/search, focus, DPR2 picking, toolbar/settings, telemetry, updater controls, and live session lifecycle. They were run sequentially in parts after connection interruptions; all final parts passed. Tests use synthetic fixtures and isolated homes, not the operator's journals.
-- Native GTK4/WebKitGTK6 with a real watcher and an isolated synthetic Codex store: the new session appeared in **2.43 seconds**, the office expanded from 8 to 12 desks, completion status updated, frames continued and the child server exited cleanly. This latency is one measurement, not a performance guarantee.
-- Lifecycle regression: **7 to 8 occupied desks**, then a burst to **17 agents / 20 desks**, with preserved actor identity/camera and no renderer error. Three shrink/grow cycles held GPU allocations at **383 geometries / 11 textures**. Paused/reduced-motion removal and re-add do not leave ghost agents. The real 3D label visibility setting was checked, not only its stored preference.
-- Update UI: background notification badge, preferences, token absent from visible DOM, explicit second-click installation confirmation, Escape/focus return, cancellation, changed-condition guard, installed/restart-needed lock, and unsupported/browser mode isolation. The UI suite mocks release states; it does not claim a real future release was installed.
-- Offline updater tests: canonical RSA signatures/identity, strict manifest/URL/size/hash/header checks, malformed redirects, cancellation including late completion, FIFO/symlink/hardlink/permission refusal, atomic replacement and independent backup, signed rollback receipt, exclusive lock, fail-closed preferences and HTTP Host/Origin/token protection. Tests generate ephemeral keys and inert image bytes; they never use the release private key or replace a user's app.
-- A separate read-only review found four updater/lifecycle edge cases (nonregular-file blocking, unsafe-preference fallback, short shutdown kill, late cancellation). All four were corrected and rechecked. This is not a comprehensive security audit.
+- `npm test`: **142 tests** covering parsers/watchers, HTTP/privacy, transcripts, usage, evidence freshness, one unknown Dot, scene lifecycle, cached mascot ownership and signed updates.
+- `npm run build` and two Python native-policy tests passed. The pinned update public key and updater implementation are unchanged from 0.2.0.
+- A genuine new Codex CLI session, run in a temporary working directory with the read-only sandbox and normal configured authentication/model, was discovered by the production watcher/API in approximately **5 seconds**. It progressed through `thinking → tool → thinking → done`, executed a harmless 15-second sleep and exited successfully. Every observation reported `source: session-log`, `live: false`. This used a real model turn and was separate from native rendering checks. Existing journals were not edited.
+- `tests/native-acceptance.py` used the production GTK/WebKit window, real watcher and isolated synthetic Codex journals. A newly written session appeared and rendered in **1.99 seconds**; completion removed its body even while motion was paused. Label preferences survived reload, the native flag remained set, and a burst reached 14 bodies / 16 stations in **4.09 seconds**. Dark background was `rgb(33, 33, 33)` and the bundled font loaded. These are single measurements, not latency guarantees.
+- `tests/native-scene.py` passed **14 native scenarios**: overview, sidebar closed, Dot/Codex focus and two rotated views, and 1/10/25 bodies with outlines disabled/enabled. Body picking was checked with overlay labels temporarily removed. Unknown Dot had no movement path and stayed at its dock across room growth; terminal fixtures never acquired bodies. Native snapshots were visually inspected. The README image contains clearly marked synthetic data from this native test.
+- Independent review reproduced and verified corrections for Gemini metadata freshness, batched message/metadata appends, keyboard focus across heartbeat updates, stale working labels during departure, and hover when a body's label anchor is outside the viewport. This was a scoped review, not a comprehensive security audit.
 
-The host used Python 3.14.7, PyGObject 3.56.3, GTK4 development package 4.25 and WebKitGTK 6.0 version 2.52.6. System libraries are not copied from this host into the package. Node 24.22.3 is bundled in the AppImage.
+The browser suite exercises current/history filters, truthful unknown states, source health, real SSE socket interruption/reconnection, keyboard focus/search, narrow layout, appearance/settings persistence, camera/body picking, toolbar controls, updater UI, discovery/completion, repeated capacity changes and clipped-anchor hover. It uses isolated synthetic data. Run the complete suite against the release commit and check its actual CI result; mocked update UI states do not establish a network update.
+
+## Native rendering measurements and limits
+
+Short WebKit samples are noisy, especially while other browser tests run. With outlines enabled, synchronous render plus GPU completion averaged approximately **5 / 8 / 16.5 ms** for **1 / 10 / 25** bodies. Ordinary frame intervals averaged **20 / 19 / 41 ms**. This does **not** establish 60 fps at 25 bodies.
+
+Static furniture batching and shared mascot geometry reduced draw calls at those loads from **421 / 1129 / 2637** to **127 / 561 / 1295**. Registered geometry counts were **105 / 149 / 167**; textures stayed at 7 and shader programs at 6. Growth to 10 and 25 bodies still produced one settling gap of roughly **0.68 and 1.06 seconds**. Large simultaneous arrivals can therefore cause a visible pause; steady-state rendering and new-session discovery are separate measurements. Silhouette outlines add no postprocessing render targets.
+
+The native host uses Python 3.14.7, PyGObject 3.56.3, GTK4 4.25 and WebKitGTK 6.0 version 2.52.6. These system libraries are not bundled. The AppImage contains Node 24.22.3.
 
 ## Reproduce
 
@@ -26,20 +31,17 @@ git diff --exit-code -- public/office3d.js
 python3 -m unittest discover -s tests -p 'test_*.py'
 npx playwright install chromium
 npm run test:bureau
-# Needs a usable GNOME/Wayland session and host GTK/WebKit runtimes:
-python3 tests/native-smoke.py
-python3 tests/native-live-smoke.py
+# Requires an actual desktop session and host GTK/WebKit runtimes:
+GDK_BACKEND=wayland python3 tests/native-acceptance.py
+GDK_BACKEND=wayland python3 tests/native-scene.py
 ```
 
-See [Updates](UPDATES.md) for the signed artifact procedure. Version **0.1.0 has no updater or pinned key**. Its first transition to 0.2.0 is manual; testing the new installation component against a disposable older image does not demonstrate in-app updating by 0.1.0. Future-version flows must be tested using a build that actually contains the updater.
+`WMAD_CHROMIUM=/path/to/chromium` selects an existing browser. `BUREAU_TEST_FILES` accepts a comma-separated subset for a focused rerun. Native harnesses accept `BUREAU_QA_ROOT` pointing to an extracted AppImage's `usr/share/ubi-bureau`, `AGENT_OFFICE_NODE` pointing to its bundled Node, and `BUREAU_QA_OUTPUT` for evidence. Verify the final artifact separately from the source tree. See [Updates](UPDATES.md) for signing and publication.
 
 ## Not claimed
 
-- No continuous cloud Dot feed, cloud worker enumeration or fabricated model/usage data.
-- No automated real Codex conversation switch; link tests do not open private conversations.
-- No exhaustive native pointer/keyboard suite. Browser interactions and native rendering/discovery are separate checks.
-- No certification for every distro, desktop, GPU, musl/Alpine or ARM64. Python/GI, GTK4 and WebKitGTK6 remain system dependencies.
-- No guarantee of stable third-party session formats or fully anonymized metadata in `--private` mode.
-- No successful update to an unreleased future version, and no claim that local passes imply remote CI success.
-
-GitHub Actions checks backend/build/native-policy/browser behavior for every push. Verify the exact commit's result rather than relying on another run.
+- No continuous cloud Dot feed or reliable active cloud-worker count; both remain unavailable.
+- A fresh local event is evidence of an action, not proof that a process is still alive. Missing fresh evidence becomes unknown; it is never guessed to be completion.
+- No automated real Codex conversation switch or exhaustive native keyboard/pointer suite. Browser interaction, real CLI discovery and native rendering are distinct checks.
+- No certification for every distribution, desktop, GPU, ARM64, musl/Alpine, or future provider log format.
+- No network update is established by offline signature tests. A real released-version download/install must be checked separately using a disposable AppImage, never the operator's installed copy.

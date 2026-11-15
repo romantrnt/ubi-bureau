@@ -33,6 +33,7 @@ function newSession(agent, id, file) {
     error: null,
     turnStartedAt: null,
     lastEventAt: null,
+    statusObservedAt: null,
     startedAt: null,
   };
 }
@@ -104,6 +105,10 @@ function stamp(s, ts) {
 
 function set(s, status, activity) {
   s.status = status;
+  // Metadata (titles, token totals, model changes) may be written after a
+  // turn. They must not make its last lifecycle event look current again.
+  s.statusObservedAt = s.lastEventAt;
+  s._statusRevision = (s._statusRevision || 0) + 1;
   if (activity !== undefined) s.activity = activity;
   if (status !== 'error') s.error = null;
 }
@@ -506,6 +511,7 @@ function applyGemini(s, d) {
   }
   if (d.$patch || d.$rewindTo || !d.type) return;
 
+  if (['user', 'gemini', 'error', 'info', 'warning'].includes(d.type)) s._geminiLastMessage = JSON.stringify(d);
   stamp(s, d.timestamp);
   switch (d.type) {
     case 'user': {

@@ -8,431 +8,18 @@
 <title>Ubi Bureau</title>
 <link rel="icon" href="/assets/bureau.png">
 <style>
-  :root {
-    --bg: #f6f6f3;
-    --panel: #ffffff;
-    --ink: #1c1c1a;
-    --muted: #6d6d68;
-    --faint: #a3a39d;
-    --line: #e4e3dd;
-    --thinking: #7c5cdb;
-    --tool: #2f7dd1;
-    --typing: #1f9d6b;
-    --waiting: #d98a0b;
-    --done: #5b8a4a;
-    --error: #d1453b;
-    --idle: #a3a39d;
-    --claude: #c96442;
-    --codex: #10a37f;
-    --gemini: #4f7cf0;
-    --copilot: #8f5cf5;
-    --omp: #a96926;
-    --pi: #4f8eb3;
-    --antigravity: #0ea5e9;
-    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #141413;
-      --panel: #1e1e1c;
-      --ink: #ecebe6;
-      --muted: #a09f99;
-      --faint: #6b6a65;
-      --line: #2e2d2a;
-      --thinking: #a48bf0;
-      --tool: #5ea4ee;
-      --typing: #3fc48f;
-      --waiting: #f0a93a;
-      --done: #86b872;
-      --error: #f0675d;
-      --idle: #6b6a65;
-      --shadow: none;
-    }
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  html, body { margin: 0; background: var(--bg); color: var(--ink); }
-  body {
-    font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
-    padding: 24px 16px 64px;
-  }
-  .wrap { max-width: 1180px; margin: 0 auto; }
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 24px; margin-bottom: 16px; }
-  h1 { font-size: 19px; margin: 0; letter-spacing: -.01em; }
-  h1 span { color: var(--ink); font-weight: 600; }
-  .summary { display: flex; gap: 18px; flex-wrap: wrap; margin-left: auto; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 0; font-size: 12px; color: var(--muted); }
-  .chip b { color: var(--ink); font-weight: 600; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-  .controls { position: relative; width: 100%; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding-top: 14px; border-top: 1px solid var(--line); }
-  .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
-  .seg button { border: 0; background: none; color: var(--muted); padding: 5px 12px; border-radius: 5px; font: inherit; font-size: 12.5px; cursor: pointer; }
-  .seg button:hover:not(.on) { color: var(--ink); background: var(--bg); }
-  .seg button.on { background: var(--ink); color: var(--bg); }
-  #qualSeg { border-color: transparent; background: transparent; }
-  #qualSeg button.on { background: var(--line); color: var(--ink); }
-  .seg button small { opacity: .65; font-size: 11px; }
-  label.tog { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); cursor: pointer; user-select: none; }
-  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--muted); padding: 5px 11px; border-radius: 8px; font: inherit; font-size: 12.5px; cursor: pointer; }
-  .btn:hover { color: var(--ink); border-color: var(--faint); }
-  button:focus-visible, select:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--tool); outline-offset: 3px; }
-  .toolbar-space { flex: 1; }
-  .controls > .btn, .settings > summary { min-height: 36px; display: inline-flex; align-items: center; white-space: nowrap; }
-  .settings > summary { list-style: none; gap: 7px; color: var(--ink); }
-  .settings > summary::-webkit-details-marker { display: none; }
-  /* A drawn chevron sits on the text's centre line; the ⌄ glyph hangs below it in most fonts. */
-  .settings > summary::after { content: ""; flex: none; width: 6px; height: 6px; margin: -3px 1px 0 2px; border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted); transform: rotate(45deg); transition: transform .2s ease, margin .2s ease; }
-  .settings[open] > summary { background: var(--line); }
-  .settings[open] > summary::after { margin-top: 3px; transform: rotate(-135deg); }
-  .filter-active { font-size: 11px; color: var(--tool); }
-  .settings-panel { position: absolute; z-index: 20; right: 0; top: calc(100% + 10px); width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 180px); overflow-y: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: 0 12px 40px #0003; }
-  .setting-group + .setting-group { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .setting-label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 9px; }
-  .setting-toggles { display: grid; gap: 12px; margin-top: 14px; }
-  .setting-toggles .tog { color: var(--ink); gap: 8px; }
-  .tog input { accent-color: var(--tool); margin: 0; width: 15px; height: 15px; }
-  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .setting-row .setting-label { margin: 0; }
-  @media (max-width: 640px) {
-    header { gap: 14px; }
-    .summary { margin-left: 0; width: 100%; gap: 18px; }
-    .controls { gap: 6px; padding-top: 12px; }
-    .seg button { padding-inline: 9px; }
-    .controls > .btn, .settings > summary { padding-inline: 9px; }
-  }
-  @media (max-width: 360px) {
-    body { padding-inline: 10px; }
-    .controls { gap: 4px; }
-    .seg button { padding-inline: 7px; }
-  }
-
-  section { margin-top: 26px; }
-  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
-  section h2 .n { color: var(--faint); font-weight: 500; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
-  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } .controls { margin-left: 0; } }
-
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; min-width: 0; position: relative; transition: border-color .3s; }
-  .card.sub { padding: 10px 12px; gap: 6px; }
-  .card.flash { animation: flash 1.6s ease-out; }
-  @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--done); } 100% { box-shadow: var(--shadow); } }
-  .card[data-s="waiting"], .card[data-s="error"] { border-color: color-mix(in srgb, var(--s) 55%, var(--line)); }
-  .top { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .agent { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); flex: none; }
-  .agent-logo { width: 20px; height: 20px; object-fit: contain; padding: 1px; flex: none; }
-  @media (prefers-color-scheme: dark) {
-    .agent-logo.mono { filter: invert(1); }
-  }
-  .project { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .time { margin-left: auto; color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
-  .title { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .status { display: flex; align-items: center; gap: 8px; color: var(--s); font-weight: 600; font-size: 13px; min-width: 0; }
-  .status .lbl { white-space: nowrap; flex: none; }
-  .status .act { flex: 1 1 auto; color: var(--ink); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-  .q, .r { font-size: 12.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
-  .q::before { content: "› "; color: var(--faint); }
-  .r { color: var(--ink); opacity: .85; }
-  .r::before { content: "← "; color: var(--faint); }
-  .err { font-size: 12.5px; color: var(--error); }
-  .today-tokens { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .today-panel { width: min(340px, calc(100vw - 32px)); }
-  .today-big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-  .today-big div { padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
-  .today-big b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
-  .today-big span, .today-note, .today-head { font-size: 12px; color: var(--muted); }
-  .today-head { margin: 12px 0 6px; font-weight: 600; }
-  .today-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; }
-  .today-row .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .today-note { margin-top: 12px; line-height: 1.5; }
-  .ctx { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--faint); }
-  .ctx .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
-  .ctx .bar i { display: block; height: 100%; border-radius: 2px; background: var(--done); }
-  .ctx.warn .bar i { background: var(--waiting); }
-  .ctx.full .bar i { background: var(--error); }
-  /* ---- toolbar menus and controls, styled to match (no browser defaults) */
-  details.menu > summary { gap: 7px; }
-  .scene-ico { display: inline-flex; }
-  .scene-art { width: 18px; height: 18px; flex: none; display: block; object-fit: contain; }
-  .scene-list .thumb .scene-art { width: 22px; height: 22px; }
-  #sceneName, #langName { max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* Scene, agent and language menus share one compact list. */
-  .list-panel { width: 250px; padding: 12px; }
-  .scene-panel { right: auto; left: 0; }
-  .pick-list { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; }
-  .pick-list button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 34px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
-  .pick-list button:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
-  .pick-list .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pick-list small { color: var(--faint); font-size: 12px; display: inline-flex; align-items: center; gap: 3px; }
-  .pick-list .chk { flex: none; opacity: 0; color: var(--tool); }
-  .pick-list button.on { font-weight: 600; }
-  .pick-list button.on .chk { opacity: 1; }
-  .pick-list .agent-logo { width: 16px; height: 16px; margin: 0; }
-  .scene-list .thumb { flex: none; width: 44px; height: 28px; border-radius: 5px; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 7%, var(--panel)); color: var(--muted); }
-  .scene-list .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  /* Agent rows: a checkbox square, the logo, the name and a count */
-  #agentChips .box { flex: none; display: grid; place-items: center; width: 16px; height: 16px; border: 1.5px solid color-mix(in srgb, var(--ink) 30%, var(--line)); border-radius: 4px; }
-  #agentChips .box .chk { width: 12px; height: 12px; opacity: 0; color: #fff; stroke-width: 2.6; }
-  #agentChips .on .box { background: var(--tool); border-color: var(--tool); }
-  #agentChips .on .box .chk { opacity: 1; }
-  #agentChips .chip-f > .chk, #agentChips button > svg.chk:last-child { display: none; }
-  #agentChips b { font-weight: 500; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
-  #agentChips .ini { font-size: 11px; color: var(--muted); width: 16px; text-align: center; }
-  details.menu.active > summary { border-color: color-mix(in srgb, var(--tool) 55%, var(--line)); }
-  .prefs-panel { width: 280px; }
-  .prefs-panel .setting-toggles { display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; }
-  /* Switches instead of checkboxes */
-  .prefs-panel label.tog { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 2px; font-size: 13.5px; color: var(--ink); cursor: pointer; }
-  .tog input { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 36px; height: 21px; margin: 0; border-radius: 999px; background: color-mix(in srgb, var(--ink) 18%, var(--panel)); cursor: pointer; transition: background .18s; }
-  .tog input::after { content: ""; position: absolute; top: 2.5px; left: 2.5px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0004; transition: transform .18s cubic-bezier(.2, .8, .2, 1); }
-  .tog input:checked { background: var(--tool); }
-  .tog input:checked::after { transform: translateX(15px); }
-  .tog input:focus-visible { outline: 2px solid var(--tool); outline-offset: 2px; }
-  .tog-note { margin: 0 2px 4px; font-size: 12px; line-height: 1.5; color: var(--muted); }
-  .prefs-panel .setting-toggles:last-of-type { margin-bottom: 4px; }
-  /* ---- full-screen mode: the office fills the window, agents in a side panel */
-  .ui-ico { stroke-width: 1.8; }
-  .side, .side-tab { display: none; }
-  body.full { overflow: hidden; padding: 0; margin: 0; height: 100dvh; }
-  body.full .wrap { max-width: none; height: 100dvh; padding: 0; display: flex; flex-direction: column; }
-  body.full header { flex-wrap: wrap; gap: 8px 14px; margin: 0; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
-  body.full h1 { font-size: 15px; white-space: nowrap; }
-  body.full .summary { margin-left: 0; flex-wrap: nowrap; }
-  body.full .controls { width: auto; flex: 1; min-width: 0; padding: 0; border: 0; flex-wrap: wrap; row-gap: 6px; }
-  body.full #viewSeg, body.full .newver { display: none; }
-  /* The panel floats over a full-width office; the office pans its view to keep
-     the room clear of it (setInset), so the canvas never resizes during the slide. */
-  body.full #officeWrap { position: relative; flex: 1; min-height: 0; }
-  body.full .office { height: 100%; min-height: 0; border: 0; border-radius: 0; }
-  body.full .legend { position: absolute; left: 12px; bottom: 10px; margin: 0; padding: 6px 10px; border-radius: 10px; background: color-mix(in srgb, var(--panel) 85%, transparent); backdrop-filter: blur(6px); }
-  body.full #agentLegend { bottom: 44px; }
-  body.full #main { display: none; }
-  /* The video pop-out preview and its errors float over the office instead of pushing it down. */
-  body.full .pip-preview { position: fixed; z-index: 25; left: 16px; bottom: 84px; width: min(360px, calc(100vw - 32px)); margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 12px 40px #0004; }
-  body.full .pip-preview video { width: 100%; height: auto; border-radius: 8px; }
-  body.full .pip-preview p { margin: 0 0 8px; font-size: 12px; }
-  body.full .pip-error { position: fixed; z-index: 25; left: 50%; top: calc(var(--bar, 53px) + 12px); transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 24px #0003; }
-  body.full .side { display: block; position: fixed; z-index: 15; right: 0; bottom: 0; top: var(--bar, 53px); width: 340px; border-left: 1px solid var(--line); background: var(--panel); transition: transform .32s cubic-bezier(.2, .8, .2, 1), box-shadow .32s; overflow: hidden; }
-  body.full.side-closed { --side: 0px; }
-  body.full.side-closed .side { transform: translateX(100%); box-shadow: none; }
-  body.full.side-closed .side-tab { display: inline-flex; animation: tabIn .3s .18s both cubic-bezier(.2, .8, .2, 1); }
-  @keyframes tabIn { from { opacity: 0; transform: translateX(12px); } }
-  .side-tab { position: fixed; z-index: 15; right: 12px; top: calc(var(--bar, 53px) + 12px); align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); font: 600 13px inherit; cursor: pointer; box-shadow: 0 4px 16px #0002; }
-  .side-pane { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--panel); transition: transform .34s cubic-bezier(.2, .8, .2, 1), opacity .34s; }
-  /* Layer two slides in over the list; the list eases left and fades. */
-  #sideDetail { transform: translateX(100%); }
-  .side.detail #sideDetail { transform: none; }
-  .side.detail #sideList { transform: translateX(-22%); opacity: 0; }
-  .side.opening .srow, .side.entering #detailBody > * { animation: rowIn .38s both cubic-bezier(.2, .8, .2, 1); animation-delay: calc(var(--i, 0) * 28ms + 80ms); }
-  .side.entering #detailBody > * { animation-delay: 140ms; }
-  @keyframes rowIn { from { opacity: 0; transform: translateX(14px); } }
-  @media (prefers-reduced-motion: reduce) {
-    .side, .side-pane { transition: none; }
-    .side.opening .srow, .side.entering #detailBody > *, body.full.side-closed .side-tab { animation: none; }
-  }
-  .side-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
-  #detailTitle { display: flex; align-items: center; gap: 7px; }
-  .side-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .side-count { color: var(--muted); font-size: 12px; }
-  .icon-btn { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
-  .icon-btn:hover { color: var(--ink); }
-  .side-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 8px 10px 16px; }
-  .side-group { margin: 10px 6px 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .srow { width: 100%; display: grid; grid-template-columns: 18px 1fr auto; gap: 2px 9px; align-items: center; text-align: left; padding: 9px 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; cursor: pointer; }
-  .srow:hover, .srow:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; }
-  .srow .agent-logo { width: 16px; height: 16px; margin: 0; }
-  .srow .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
-  .srow .tm { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
-  .srow .st { grid-column: 2 / 4; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--muted); }
-  .srow .st i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--s); }
-  .srow .st span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .srow .st b { flex: none; color: var(--s); font-weight: 600; }
-  .srow.sub .nm { font-weight: 500; color: var(--muted); }
-  .dmeta { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 10px 6px 12px; font-size: 12.5px; }
-  .dmeta dt { color: var(--faint); }
-  .dmeta dd { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dmeta dd.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
-  .dstatus { display: flex; align-items: center; gap: 7px; margin: 8px 6px 0; font-size: 13px; flex-wrap: wrap; }
-  .dstatus i { width: 8px; height: 8px; border-radius: 50%; background: var(--s); }
-  .dstatus b { color: var(--s); }
-  .dstatus .act { color: var(--muted); }
-  .dtitle { margin: 4px 6px 0; font-size: 13px; color: var(--muted); }
-  .dactions { display: flex; gap: 8px; margin: 0 6px 6px; }
-  .dactions .copy { font-size: 12px; }
-  .side .ctx { margin: 0 6px 10px; }
-  .msgs { display: flex; flex-direction: column; gap: 8px; margin: 6px 4px 0; }
-  .msg { max-width: 92%; padding: 8px 11px; border-radius: 12px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .msg.user { align-self: flex-end; background: color-mix(in srgb, var(--tool) 16%, var(--panel)); }
-  .msg.assistant { align-self: flex-start; background: color-mix(in srgb, var(--ink) 6%, var(--panel)); border: 1px solid var(--line); }
-  .msg.tool { align-self: flex-start; display: flex; align-items: center; gap: 6px; padding: 3px 4px; color: var(--muted); font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .msg .at { display: block; margin-top: 3px; font-size: 10.5px; color: var(--faint); }
-  .msgs-note { margin: 12px 6px; font-size: 12.5px; color: var(--muted); }
-  .side-sec { margin: 14px 6px 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  /* The panel's group headings already count Needs you / Working / Finished, so the
-     toolbar drops those chips (and then the title) before it would wrap. */
-  @media (max-width: 1240px) { body.full .summary { display: none; } }
-  @media (max-width: 900px) {
-    body.full h1, body.full #langName, body.full .today-tokens,
-    body.full #todayMenu > summary [data-t], body.full #settingsMenu > summary [data-t] { display: none; }
-  }
-  /* Phones: one row of icon buttons; the labels, chevrons and pop-out (unsupported there) go. */
-  @media (max-width: 640px) {
-    html body.full header { padding: 8px 10px; gap: 6px; flex-wrap: nowrap; }
-    html body.full .controls { flex-wrap: nowrap; gap: 6px; }
-    body.full #pipBtn { display: none !important; }
-    body.full details.menu > summary { gap: 0; padding-inline: 9px; }
-    body.full #sceneMenu > summary { gap: 6px; }
-    body.full #sceneName { max-width: 6.5em; }
-    body.full details.menu > summary::after,
-    body.full #agentName, body.full #langName, body.full .today-tokens,
-    body.full #todayMenu > summary [data-t], body.full #settingsMenu > summary [data-t] { display: none; }
-    body.full details.menu.active > summary { position: relative; }
-    body.full details.menu.active > summary::before { content: ""; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--tool); }
-  }
-  @media (max-width: 359px) { body.full #sceneName { display: none; } }
-  @media (max-width: 760px) {
-    body.full .side { width: min(340px, 88vw); }
-    body.full h1, body.full .summary { display: none; }
-    body.full header { flex-wrap: wrap; }
-    /* Menus span the screen under the toolbar instead of hanging off their button. */
-    body.full .settings-panel { position: fixed; left: auto; right: 12px; max-width: calc(100vw - 24px); top: calc(var(--bar, 53px) + 6px); max-height: calc(100dvh - var(--bar, 53px) - 24px); }
-    body.full .controls { flex-wrap: wrap; row-gap: 6px; }
-  }
-  .stuck { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--error); white-space: nowrap; }
-  .ui-ico { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  .card.is-stuck { border-color: color-mix(in srgb, var(--error) 45%, var(--line)); }
-  .foot { display: flex; gap: 8px; align-items: center; color: var(--faint); font-size: 11.5px; min-width: 0; }
-  .foot .model { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .copy { margin-left: auto; border: 0; background: none; color: var(--faint); font: inherit; font-size: 11.5px; cursor: pointer; padding: 0; flex: none; }
-  .copy:hover { color: var(--ink); }
-
-  [data-s="thinking"] { --s: var(--thinking); }
-  [data-s="tool"] { --s: var(--tool); }
-  [data-s="typing"] { --s: var(--typing); }
-  [data-s="waiting"] { --s: var(--waiting); }
-  [data-s="done"] { --s: var(--done); }
-  [data-s="interrupted"] { --s: var(--idle); }
-  [data-s="error"] { --s: var(--error); }
-  [data-s="idle"] { --s: var(--idle); }
-
-  .ind { width: 18px; height: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; flex: none; }
-  .ind i { width: 4px; height: 4px; border-radius: 50%; background: var(--s); display: none; }
-  [data-s="thinking"] .ind i { display: block; }
-  [data-s="thinking"] .ind i { animation: bob 1.2s infinite ease-in-out; }
-  [data-s="thinking"] .ind i:nth-child(2) { animation-delay: .15s; }
-  [data-s="thinking"] .ind i:nth-child(3) { animation-delay: .3s; }
-  @keyframes bob { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
-  [data-s="tool"] .ind::before { content: ""; width: 11px; height: 11px; border: 2px solid var(--s); border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  [data-s="typing"] .ind::before { content: ""; width: 2px; height: 13px; background: var(--s); animation: blink 1s steps(1) infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
-  [data-s="waiting"] .ind::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--s); animation: pulse 1.4s infinite; }
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--s) 60%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
-  [data-s="done"] .ind::before { content: "✓"; color: var(--s); font-weight: 700; }
-  [data-s="error"] .ind::before { content: "!"; color: var(--s); font-weight: 800; }
-  [data-s="interrupted"] .ind::before { content: "■"; color: var(--s); font-size: 9px; }
-  [data-s="idle"] .ind::before { content: "–"; color: var(--s); }
-  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
-
-  .office { position: relative; height: min(74vh, 820px); min-height: 380px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); }
-  .office-canvas { display: block; }
-  .office canvas { transition: opacity .35s; }
-  .office.loading canvas { opacity: 0; }
-  .office-loader { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 13px; z-index: 2; }
-  .office.loading .office-loader { display: flex; }
-  .office-loader .spin { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--tool); border-radius: 50%; animation: spin .8s linear infinite; }
-  .office-gl, .office-overlay { position: absolute; inset: 0; }
-  .office-overlay { touch-action: none; }
-  .tip { position: fixed; z-index: 10; width: 320px; max-width: calc(100vw - 24px); pointer-events: none; display: none; }
-  .tip.pinned { pointer-events: auto; }
-  .tip .card { box-shadow: 0 8px 30px rgba(0,0,0,.18); }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; color: var(--muted); font-size: 12px; }
-  .legend span { display: inline-flex; align-items: center; gap: 5px; }
-
-  .pip-preview { margin-bottom: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-  .pip-preview p { margin: 0 0 10px; color: var(--muted); }
-  .pip-preview video { display: block; width: min(100%, 520px); margin-bottom: 10px; background: var(--panel); }
-  .pip-error { color: var(--error); margin: 0 0 12px; }
-  .newver { border: 1px solid var(--tool); background: color-mix(in srgb, var(--tool) 18%, var(--panel)); color: var(--ink); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12.5px; cursor: pointer; animation: glowv 2.4s ease-in-out infinite; }
-  .newver:disabled { opacity: .7; cursor: default; animation: none; }
-  @keyframes glowv { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tool) 25%, transparent); } }
-  .ver { position: fixed; right: 14px; bottom: 12px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--faint); z-index: 5; }
-  .ver button { border: 1px solid var(--tool); background: color-mix(in srgb, var(--tool) 14%, var(--panel)); color: var(--ink); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12px; cursor: pointer; }
-  .ver button:disabled { opacity: .6; cursor: default; }
-  .ver code { background: var(--panel); border: 1px solid var(--line); padding: 2px 6px; border-radius: 6px; }
-  .empty { text-align: center; color: var(--muted); padding: 60px 16px; border: 1px dashed var(--line); border-radius: 12px; }
-  .empty code { background: var(--panel); padding: 2px 6px; border-radius: 4px; }
-  .conn { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: var(--error); color: #fff; padding: 6px 14px; border-radius: 999px; font-size: 12.5px; display: none; }
-  .conn.on { display: block; }
-
-  /* The PiP iframe owns its animation clock, layout, and pointer events. */
-  body.pip { padding: 8px; }
-  body.pip .wrap { height: calc(100dvh - 16px); display: flex; flex-direction: column; }
-  body.pip header { gap: 6px; margin-bottom: 8px; flex: none; }
-  body.pip h1, body.pip .newver, body.pip #legend, body.pip .ver,
-  body.pip .controls > :not(#viewSeg):not(#qualSeg) { display: none !important; }
-  body.pip .controls { width: auto; padding: 0; border: 0; }
-  body.pip .chip { padding: 2px 6px; font-size: 11px; }
-  body.pip .summary { gap: 4px; width: auto; margin-left: 0; }
-  body.pip #officeWrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  body.pip .office { flex: 1; height: auto; min-height: 120px; }
-  body.pip #main { overflow: auto; min-height: 0; }
-  body.pip #main:empty { display: none; }
-  body.pip section { margin-top: 12px; }
-  body.pip section:first-child { margin-top: 0; }
-  body.pip .grid { grid-template-columns: 1fr; }
-
-/* Ubi Bureau. Neutral surfaces; colour belongs to the agents and real alerts. */
-:root{color-scheme:light;--bg:#dfdfdc;--panel:#f4f3f0;--ink:#292927;--muted:#666660;--faint:#76766f;--line:#d8d7d2;--tool:#62645f;--thinking:#72687c;--typing:#52705a;--waiting:#956d28;--done:#55705b;--error:#b45146;--idle:#76766f;--surface-raised:#faf9f6;--surface-inset:#e7e6e2;--selected:#dcdcd6;--hover:#e6e5e0;--focus:#656660;--shadow:0 1px 3px #2929270c}
-@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#343433;--panel:#282827;--ink:#eeede8;--muted:#b5b4ad;--faint:#a0a098;--line:#42423e;--tool:#bfc1b8;--thinking:#b7acbf;--typing:#a2b6a4;--waiting:#c8ac71;--done:#a2b6a4;--error:#e29c90;--idle:#a0a098;--surface-raised:#343432;--surface-inset:#222221;--selected:#454540;--hover:#383835;--focus:#c4c5bd;--shadow:0 1px 3px #0003}}
-body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Adwaita Sans','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}body.full header{min-height:58px;padding:10px 18px;gap:12px 22px}body.full h1{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:650;letter-spacing:-.018em}body.full h1 img{flex:none}.summary{gap:14px}.chip{font-size:12px}.chip b{font-size:13px}.btn,details.menu>summary{min-height:34px;border-radius:8px}#qualSeg,#viewSeg,#langMenu,#agentLegend,#legend,.ver{display:none!important}body.full .side{width:320px;background:var(--panel)}.side-head{padding:16px 18px;height:57px}.side-group{text-transform:none;letter-spacing:0;font-size:12px;margin:14px 10px 6px;color:var(--muted)}.side-group:first-child{font-size:13px;font-weight:700;color:var(--ink);margin-top:8px}.srow{min-height:61px;padding:11px 10px;border-radius:9px;grid-template-columns:24px minmax(0,1fr) auto;gap:4px 9px}.srow .agent-logo{width:23px;height:23px}.srow .nm,.srow.sub .nm{font-size:13px;font-weight:600;color:var(--ink)}.srow .tm{font-size:10px;color:var(--muted)}.srow .st{font-size:11px}.srow .st b{font-weight:400;white-space:nowrap}.srow .st span{display:inline}.srow:hover,.srow.is-hover{background:var(--hover)}.srow:focus-visible{outline:2px solid var(--focus);outline-offset:-2px;background:var(--selected)}.side-body{padding:3px 10px 14px}.roster-tools{padding:4px 18px 10px;border-bottom:1px solid var(--line)}#agentSearch{width:100%;height:35px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:12px}.roster-filters{display:flex;gap:4px;flex-wrap:wrap;margin-top:9px}.roster-filters button{font:inherit;font-size:11px;color:var(--muted);padding:5px 7px;border:0;border-radius:6px;background:transparent;cursor:pointer}.roster-filters button[aria-pressed=true]{color:var(--ink);background:var(--line)}.source-note{flex:none;padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.5;background:var(--panel)}.tip{width:272px;z-index:30;max-width:calc(100vw - 24px)}.agent-peek{padding:15px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px #24242126,0 1px 3px #2424211a}.peek-head{display:flex;align-items:center;gap:10px}.peek-head .agent-logo{width:26px;height:26px;flex:none}.peek-head strong{font-size:13px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.peek-status{display:flex;align-items:center;gap:7px;margin:11px 0 13px 36px;font-size:12px;color:var(--s)}.peek-status i{width:6px;height:6px;background:currentColor;border-radius:50%;flex:none}.peek-meta{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}.peek-meta span:last-child{white-space:nowrap}.detail-source{color:var(--muted);font-size:12px;margin:10px 6px}.focus-agent{margin:2px 6px 15px}.dstatus{font-size:13px;line-height:1.5}.side-sec{text-transform:none;letter-spacing:0}.conn{z-index:35}.office-loader{background:var(--bg);text-align:center;line-height:2}#loaderText .btn{margin-top:12px}.office .spin{border-color:var(--line);border-top-color:var(--tool)}.agent-logo{object-fit:contain}.side-pane{transition-duration:.22s}.side.opening .srow,.side.entering #detailBody>*{animation:none}.srow .nm{line-height:1.4}.roster-filters button:focus-visible{outline:2px solid var(--focus)}
-@media(max-width:1100px){body.full header{gap:8px 14px}.summary{gap:10px}.chip{font-size:11px}body.full .controls{gap:6px}#todayMenu{display:none}}
-@media(max-width:760px){body.full .side{width:min(320px,90vw)}body.full h1{font-size:17px}body.full header{padding:8px 12px}body.full .summary{order:3;width:100%}.source-note{font-size:11px}#sceneMenu{display:none}}
-
-/* Toolbar, sidebar and popovers use one native-style surface hierarchy. */
-body.full header{background:#eeedea;border-bottom:1px solid #d1d0cb;min-height:58px;gap:12px 18px}
-body.full .side{background:var(--panel);border-left-color:var(--line)}
-.controls>.btn,details.menu>summary.btn{border-color:transparent;background:transparent;box-shadow:none;color:var(--ink);padding-inline:10px;border-radius:7px;font-size:12px;font-weight:500}
-.controls>.btn:hover,details.menu>summary.btn:hover,details.menu[open]>summary.btn{background:var(--hover);border-color:transparent}
-.controls>.btn:active,details.menu>summary.btn:active{background:var(--selected)}
-#sceneIco{display:none}.toolbar-space{min-width:12px}
-.ui-ico{stroke-width:1.65}.settings>summary::after{width:5px;height:5px;border-width:1.4px}
-.settings-panel{border:1px solid var(--line);background:var(--surface-raised);border-radius:10px;box-shadow:0 8px 24px #24242125,0 1px 3px #24242115}
-.settings-panel .setting-label{font-size:11px;letter-spacing:0;font-weight:600;color:var(--muted)}
-.pick-list button{border-radius:6px;font-size:12px}.pick-list button:hover{background:var(--hover)}
-.side-head{height:54px;padding:14px 18px;font-size:13px;border-bottom:0}.side-head b{font-weight:650}.side-count{font-size:11px}
-.icon-btn{border-color:transparent;background:transparent;border-radius:6px;color:var(--muted)}.icon-btn:hover{background:var(--hover);border-color:transparent;color:var(--ink)}
-.roster-tools{padding-top:2px;padding-bottom:12px;border-bottom:1px solid var(--line)}
-#agentSearch{background:var(--surface-inset);border:1px solid transparent;border-radius:7px;height:33px;font-size:12px;box-shadow:inset 0 1px 1px #24242108;color:var(--ink)}
-#agentSearch::placeholder{color:var(--muted);opacity:1}#agentSearch:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.roster-filters{display:grid;grid-template-columns:.65fr 1.25fr 1fr 1fr;gap:2px;padding:3px;margin-top:10px;border-radius:7px;background:var(--surface-inset)}
-.roster-filters button{padding:5px 3px;white-space:nowrap;font-size:10.5px;line-height:1.35;border-radius:5px;color:var(--muted)}
-.roster-filters button:hover{color:var(--ink);background:var(--hover)}
-.roster-filters button[aria-pressed=true]{background:var(--surface-raised);color:var(--ink);font-weight:550;box-shadow:0 1px 3px #24242120}
-.side-group{margin:15px 10px 7px;font-size:11px;font-weight:600;color:var(--muted)}
-.side-group:first-child{font-size:12px;font-weight:650}.srow{min-height:60px;border-radius:7px;padding:10px;gap:4px 9px}
-.srow .nm,.srow.sub .nm{font-size:13px;font-weight:550;letter-spacing:.002em}.srow .tm{font-size:10.5px;font-weight:400}
-.srow .agent-logo{width:22px;height:22px}.srow .st{font-size:11px}.srow .st i{width:6px;height:6px}
-.srow.is-hover,.srow:hover{background:var(--hover)}.srow:focus-visible{background:var(--selected);outline:2px solid var(--focus);outline-offset:-2px}
-.source-note{border-top-color:var(--line);font-size:10.5px;line-height:1.5;color:var(--muted);padding:11px 18px}
-.agent-peek{background:var(--surface-raised);border-radius:10px;border-color:var(--line);padding:14px;box-shadow:0 10px 26px #24242126,0 1px 3px #24242118}
-.peek-head strong{font-size:13px;font-weight:600;letter-spacing:0}.peek-status{font-size:12px}.peek-meta{font-size:10.5px;border-top-color:var(--line)}
-.detail-source{font-size:12px}.focus-agent{font-size:12px;background:var(--surface-raised);border-color:var(--line);border-radius:7px;box-shadow:0 1px 2px #2424210c}
-.msg{border-radius:8px}.msg.user{background:var(--surface-inset);border-color:var(--line)}.dmeta{font-size:12px}.dmeta dd{color:var(--ink)}
-button,summary,input{touch-action:manipulation}button:focus-visible,summary:focus-visible,input:focus-visible{outline-color:var(--focus)}
-@media(prefers-color-scheme:dark){body.full header{background:#2d2d2b;border-bottom-color:#41413d}.settings-panel,.agent-peek{box-shadow:0 10px 28px #0005,0 1px 2px #0004}.roster-filters button[aria-pressed=true]{background:#55554f;box-shadow:0 1px 3px #0003}.focus-agent{box-shadow:0 1px 2px #0003}}
-@media(max-width:1100px){body.full header{gap:8px 12px}body.full h1{font-size:16px}.controls>.btn,details.menu>summary.btn{padding-inline:8px}.summary{gap:10px}}
-
-@font-face{font-family:Pixelify;src:url(/assets/fonts/PixelifySans.ttf) format("truetype");font-display:swap}body.full h1 span{font-family:Pixelify,monospace;font-size:24px;font-weight:500;letter-spacing:.01em}
-
-/* Real telemetry: color encodes status, not chrome. */
-:root{--tool:#4777a9;--thinking:#8463ac;--typing:#3d8668;--waiting:#a66a13;--done:#4e8150;--error:#b64f45}
-@media(prefers-color-scheme:dark){:root{--tool:#83afe0;--thinking:#b499d5;--typing:#7bc5a2;--waiting:#e6b25c;--done:#98c38e;--error:#ed9187}}
-.peek-status{flex-wrap:wrap;gap:6px;color:var(--s)}.peek-activity{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
-.session-excerpt{font-size:11.5px;line-height:1.45;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;margin:7px 0}
-.session-excerpt>span{color:var(--faint);font-size:10.5px}.telemetry{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:10.5px;line-height:1.4;color:var(--faint);margin:6px 0}.telemetry>span{overflow:hidden;text-overflow:ellipsis;max-width:100%;white-space:nowrap}
-.srow{min-height:60px;height:auto}.srow .session-excerpt,.srow .telemetry,.srow .ctx{grid-column:2 / -1;text-align:left;margin:2px 0}.srow .session-excerpt{-webkit-line-clamp:1}.srow .st b{color:var(--s)}.srow .ctx{font-size:10px}.srow .telemetry{font-size:10px}.srow .st{min-width:0}.srow .st>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
-.snapshot-toggle{display:flex;width:100%;align-items:center;justify-content:space-between;border:0;background:transparent;text-align:left;cursor:pointer;color:var(--muted);font:inherit;font-size:11px;padding:14px 8px!important}.snapshot-toggle span{font-size:10px;color:var(--faint)}
-.agent-peek .ctx{margin:8px 0}.agent-peek .peek-meta{font-size:10px}.detail-source+.session-excerpt{padding:0 6px}
+@font-face{font-family:'Bureau Sans';src:url('/assets/fonts/AdwaitaSans-Regular.ttf') format('truetype');font-weight:100 900;font-display:swap}
+:root{color-scheme:light;--bg:#edf0f3;--panel:#ffffff;--surface-raised:#ffffff;--surface-inset:#f1f3f6;--ink:#252b34;--muted:#626b78;--faint:#737c89;--line:#dce1e7;--hover:#f0f3f7;--selected:#e5edf8;--focus:#346daf;--tool:#296b9e;--thinking:#7652a5;--typing:#26745a;--waiting:#946315;--done:#39734e;--error:#b64c4e;--idle:#77818d;--shadow:0 12px 36px #2634451a;--side-width:366px}
+:root[data-theme=dark]{color-scheme:dark;--bg:#212121;--panel:#171717;--surface-raised:#2f2f2f;--surface-inset:#212121;--ink:#ececec;--muted:#b4b4b4;--faint:#a0a0a0;--line:#3b3b3b;--hover:#2f2f2f;--selected:#383838;--focus:#d4d4d4;--tool:#94c2ee;--thinking:#c4a4ec;--typing:#8bd4b4;--waiting:#ebc276;--done:#9fd1ad;--error:#f19ca0;--idle:#a2a2a2;--shadow:0 12px 36px #0006}
+*{box-sizing:border-box}[hidden]{display:none!important}html,body{margin:0;background:var(--bg);color:var(--ink)}body{font:13px/1.45 'Bureau Sans','Adwaita Sans','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;padding:22px}button,input,select,textarea,summary{font:inherit}button,summary,input{touch-action:manipulation}button,summary{cursor:pointer}button:disabled{cursor:default;opacity:.5}button:focus-visible,select:focus-visible,summary:focus-visible,input:focus-visible,a:focus-visible,textarea:focus-visible{outline:2px solid var(--focus);outline-offset:3px}button{color:inherit}a{color:var(--tool)}.wrap{max-width:1440px;margin:auto}header{display:flex;align-items:center;flex-wrap:wrap;gap:12px 18px;margin-bottom:16px}h1{display:flex;align-items:center;gap:9px;font-size:19px;letter-spacing:-.04em;white-space:nowrap;margin:0;font-weight:730}h1 img{width:29px;height:29px}h1 span{font:inherit}h1::after{content:'Local agent office';font-size:10px;font-weight:500;letter-spacing:0;color:var(--muted);align-self:flex-end;margin:0 0 3px 3px}.summary{display:flex;flex-wrap:wrap;gap:12px;margin-left:auto}.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}.chip b{font-size:13px;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}.dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}.controls{position:relative;width:100%;display:flex;gap:5px;align-items:center;flex-wrap:wrap}.btn,details.menu>summary{border:1px solid var(--line);background:var(--panel);color:var(--ink);min-height:32px;padding:5px 10px;border-radius:6px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}.btn:hover,details.menu>summary:hover,.icon-btn:hover{background:var(--hover)}.btn:active{background:var(--selected)}.toolbar-space{flex:1;min-width:4px}.seg{display:inline-flex;gap:2px;background:var(--surface-inset);border:1px solid var(--line);padding:3px;border-radius:7px}.seg button{border:0;background:transparent;color:var(--muted);padding:4px 10px;font-size:11px;border-radius:4px}.seg button.on{background:var(--ink);color:var(--panel)}#qualSeg,#langMenu,#legend,#agentLegend,.ver{display:none!important}.ui-ico{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;flex:none}.settings{position:relative}.settings>summary{list-style:none;white-space:nowrap}.settings>summary::-webkit-details-marker{display:none}.settings>summary::after{content:'';width:5px;height:5px;border-right:1.4px solid var(--muted);border-bottom:1.4px solid var(--muted);transform:rotate(45deg);margin:-3px 0 0 2px}.settings[open]>summary{background:var(--selected)}.settings-panel{position:absolute;z-index:25;top:calc(100% + 9px);right:0;width:min(320px,calc(100vw - 24px));padding:17px;border:1px solid var(--line);border-radius:10px;background:var(--surface-raised);box-shadow:var(--shadow);max-height:calc(100dvh - 130px);overflow-y:auto;overscroll-behavior:contain}.scene-panel{right:auto;left:0}.list-panel{width:270px;padding:12px}.setting-label{display:block;color:var(--muted);font-size:11px;font-weight:650;margin-bottom:8px}.setting-group+.setting-group{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}.setting-row{display:flex;justify-content:space-between;align-items:center;gap:10px}.setting-toggles{display:grid;gap:4px}.tog{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;font-size:12px;cursor:pointer}.tog input{appearance:none;-webkit-appearance:none;position:relative;width:32px;height:19px;border-radius:10px;border:0;background:var(--line);margin:0;flex:none;cursor:pointer}.tog input:after{content:'';position:absolute;left:2px;top:2px;width:15px;height:15px;background:var(--surface-raised);border-radius:50%;transition:transform .15s ease}.tog input:checked{background:var(--focus)}.tog input:checked:after{transform:translateX(13px)}.tog:has(input:disabled){color:var(--faint);cursor:default}.tog-note{font-size:11px;line-height:1.5;color:var(--muted);margin:6px 0 12px}.pick-list{display:flex;flex-direction:column;gap:2px}.pick-list button{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--ink);min-height:36px;border-radius:5px;padding:6px;font-size:12px;text-align:left}.pick-list button:hover{background:var(--hover)}.pick-list .lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pick-list small,.pick-list b{font-size:11px;color:var(--muted);font-weight:500}.pick-list .chk{opacity:0;width:13px;height:13px}.pick-list button.on .chk{opacity:1}.pick-list button.on{font-weight:650}.scene-list .thumb{width:42px;height:29px;display:grid;place-items:center;border-radius:4px;overflow:hidden;background:var(--surface-inset)}.scene-list .thumb img{width:100%;height:100%;object-fit:cover}.scene-art{display:block;width:19px;height:19px}.scene-ico{display:flex}#sceneName{max-width:9em;overflow:hidden;text-overflow:ellipsis}.box{display:grid;place-items:center;width:15px;height:15px;border:1px solid var(--faint);border-radius:3px}.on .box{background:var(--focus);color:var(--panel);border-color:var(--focus)}#agentChips button>svg.chk:last-child{display:none}.ini{width:18px}.agent-logo{width:20px;height:20px;object-fit:contain;flex:none}.pick-list .agent-logo{width:18px;height:18px}
+/* Native workbench: one fixed command bar, a scene, and an instrument rail. */
+.side,.side-tab{display:none}body.full{padding:0;height:100dvh;overflow:hidden}body.full .wrap{max-width:none;height:100dvh;display:flex;flex-direction:column}body.full header{flex:none;margin:0;padding:10px 16px;min-height:62px;gap:8px 18px;border-bottom:1px solid var(--line);background:var(--panel);z-index:20}body.full .controls{width:auto;flex:1;min-width:0;flex-wrap:nowrap}body.full .controls>.btn,body.full details.menu>summary{border-color:transparent;background:transparent}body.full .controls>.btn:hover,body.full details.menu>summary:hover,body.full details.menu[open]>summary{background:var(--hover)}body.full .summary{order:2;margin:0;flex-wrap:nowrap}body.full #newVer{display:none}body.full #officeWrap{flex:1;position:relative;min-height:0}body.full .office{height:100%;min-height:0;border:0;border-radius:0}body.full .side{display:block;position:fixed;z-index:15;top:var(--bar,62px);right:0;bottom:0;width:var(--side-width);background:var(--panel);border-left:1px solid var(--line);overflow:hidden;transition:transform .2s ease}body.full.side-closed .side{transform:translateX(100%)}body.full.side-closed .side-tab{display:flex}.side-tab{position:fixed;z-index:16;top:calc(var(--bar,62px) + 12px);right:12px;gap:7px;align-items:center;border:1px solid var(--line);border-radius:7px;padding:9px 12px;background:var(--panel);font-size:12px;box-shadow:var(--shadow)}.side-pane{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--panel);transition:transform .2s ease}#sideDetail{transform:translateX(100%)}.side.detail #sideDetail{transform:none}.side.detail #sideList{transform:translateX(-20%)}.side-head{height:52px;padding:12px 15px;display:flex;align-items:center;gap:8px;flex:none}.side-head b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:700}.side-count{font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted)}.icon-btn{display:grid;place-items:center;width:28px;height:28px;border:0;background:transparent;color:var(--muted);border-radius:5px;flex:none}.roster-tools{flex:none;padding:0 14px 12px;border-bottom:1px solid var(--line)}.roster-scope{display:flex;gap:16px;margin:0 0 12px;border-bottom:1px solid var(--line)}.roster-scope button{display:flex;align-items:center;gap:6px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);padding:3px 1px 8px;font-size:12px}.roster-scope button[aria-pressed=true]{border-color:var(--focus);color:var(--ink);font-weight:700}.roster-scope b{font-size:10px;font-variant-numeric:tabular-nums;font-weight:600;background:var(--surface-inset);padding:0 5px;border-radius:4px}#agentSearch{width:100%;height:34px;border:1px solid var(--line);border-radius:6px;padding:0 10px;background:var(--surface-raised);color:var(--ink);font-size:12px}#agentSearch::placeholder{color:var(--muted);opacity:1}.roster-filters{display:flex;gap:4px;margin-top:9px;flex-wrap:wrap}.roster-filters button{border:1px solid transparent;background:transparent;color:var(--muted);border-radius:5px;padding:4px 6px;font-size:10.5px;white-space:nowrap}.roster-filters button:hover{background:var(--hover)}.roster-filters button[aria-pressed=true]{background:var(--selected);color:var(--ink);border-color:var(--line)}.roster-hint{color:var(--muted);font-size:10.5px;margin:8px 0 0;line-height:1.4}.side-body{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:7px 9px 16px;min-height:0}.side-group{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10.5px;font-weight:650;color:var(--muted);margin:12px 7px 5px}.side-group:first-child{margin-top:5px}.side-group span{font-weight:450}.srow{width:100%;display:grid;grid-template-columns:23px minmax(0,1fr) auto;gap:3px 9px;text-align:left;align-items:center;padding:10px 8px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--ink);margin-bottom:2px}.srow:hover,.srow.is-hover{background:var(--hover)}.srow:focus-visible{background:var(--selected);outline-offset:-2px}.srow[data-status=waiting],.srow[data-status=error]{background:color-mix(in srgb,var(--s) 7%,var(--panel));border-color:color-mix(in srgb,var(--s) 28%,var(--line))}.srow .agent-logo{width:23px;height:23px;grid-row:1 / 3}.srow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:650;line-height:1.4}.srow .tm{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}.srow .st{grid-column:2 / -1;display:flex;align-items:center;gap:5px;min-width:0;font-size:10.5px;line-height:1.5}.st i,.dstatus i{width:6px;height:6px;border-radius:50%;background:var(--s);flex:none}.srow .st b{font-weight:550;color:var(--s)}.srow .st>span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--muted)}.srow .session-excerpt,.srow .telemetry,.srow .ctx,.srow .row-source{grid-column:2 / -1;margin:1px 0}.row-source{display:flex;justify-content:space-between;gap:5px;font-size:10px;line-height:1.4;color:var(--muted)}.row-source span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.session-excerpt{font-size:11.5px;color:var(--muted);line-height:1.45;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:8px 0}.session-excerpt>span{color:var(--faint);font-size:10px}.srow .session-excerpt{-webkit-line-clamp:1;font-size:11px}.telemetry{display:flex;gap:5px 12px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin:6px 0}.telemetry>span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.srow .telemetry{font-size:10px}.ctx{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--muted);margin:8px 0}.ctx .bar{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden;min-width:24px}.ctx .bar i{height:100%;display:block;background:var(--done)}.ctx.warn .bar i{background:var(--waiting)}.ctx.full .bar i{background:var(--error)}.srow .ctx{font-size:10px}.source-note{flex:none;padding:11px 15px;border-top:1px solid var(--line);background:var(--surface-inset);font-size:10.5px;line-height:1.5;color:var(--muted)}.source-note strong{color:var(--ink);font-weight:600}.source-note p{margin:3px 0 0}.source-connection{display:flex;align-items:center;gap:6px;margin-bottom:3px}.connection-indicator{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--done)}[data-connected=false] .connection-indicator{background:var(--error)}.source-note .source-details{border:0;background:transparent;padding:0;margin-top:6px;color:var(--tool);font-size:10.5px;text-decoration:underline;text-underline-offset:2px}.history-more{width:calc(100% - 16px);margin:12px 8px}.side-sec{margin:18px 6px 8px;font-size:11px;font-weight:650;color:var(--muted)}#detailTitle{display:flex;align-items:center;gap:8px;font-size:12.5px}.dstatus{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:14px 6px;font-size:13px}.dstatus b{font-weight:650;color:var(--s)}.dstatus .act{width:100%;padding-left:13px;font-size:12px;color:var(--ink);overflow-wrap:anywhere}.dmeta{display:grid;grid-template-columns:82px minmax(0,1fr);gap:8px 12px;margin:16px 6px;font-size:11.5px}.dmeta dt{color:var(--muted)}.dmeta dd{margin:0;overflow-wrap:anywhere;min-width:0}.mono{font-size:11px}.detail-source{margin:10px 6px;font-size:11px;color:var(--muted);line-height:1.6}.presence-note{margin:12px 6px;padding:10px 11px;border:1px solid var(--line);border-radius:6px;background:var(--surface-inset);font-size:11px;line-height:1.5;color:var(--muted)}.focus-agent{margin:2px 6px}.msgs-note{font-size:11.5px;color:var(--muted);line-height:1.6;padding:12px 6px}.msgs{display:grid;gap:9px}.msg{padding:10px 11px;font-size:11.5px;line-height:1.6;border:1px solid var(--line);border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--surface-raised)}.msg.user{background:var(--surface-inset)}.msg.tool{display:flex;align-items:center;gap:6px;padding:5px 8px;color:var(--muted);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:0;background:transparent}.msg .at{display:block;text-align:right;font-size:9px;color:var(--muted);margin-top:4px}.dactions{display:flex;gap:8px;margin:12px 6px}.copy{border:1px solid var(--line);border-radius:5px;background:var(--surface-raised);padding:5px 8px;color:var(--tool);font-size:11px}.stuck{color:var(--error);font-size:11px;display:inline-flex;gap:5px;align-items:center}
+/* The telemetry view is useful without a GPU and never changes scene membership. */
+body.full #main{display:none}body.full.telemetry-view #main{display:block;flex:1;min-height:0;overflow:auto;margin-right:var(--side-width);padding:22px 26px 40px;background:var(--surface-inset)}body.full.telemetry-view.side-closed #main{margin-right:0}body.full.telemetry-view #officeWrap{display:none!important}.telemetry-heading{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:0 0 8px}.telemetry-heading h2{font-size:21px;letter-spacing:-.03em;margin:0}.telemetry-heading p{font-size:11px;color:var(--muted);margin:0}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:10px}section{margin-top:20px}section h2{font-size:12px;margin:0 0 8px;font-weight:650;color:var(--muted);display:flex;align-items:center;gap:8px}section h2 .n{font-size:10px}.card{min-width:0;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--s,var(--line));border-radius:7px;padding:12px;display:flex;flex-direction:column;gap:8px}.card .top{display:flex;align-items:center;gap:7px;min-width:0}.card .agent{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted);flex:none}.card .project{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}.card .time{font-size:10px;margin-left:auto;white-space:nowrap;color:var(--muted)}.card .title{font-weight:650;font-size:13px;overflow-wrap:anywhere}.card .status{display:flex;align-items:center;gap:6px;color:var(--s);font-size:11px}.card .act{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);min-width:0}.q,.r{font-size:11.5px;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.err{font-size:11px;color:var(--error)}.foot{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--muted)}.foot .model{min-width:0;overflow:hidden;text-overflow:ellipsis}.foot .copy{margin-left:auto}.empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:12px;line-height:1.6}.empty strong{display:block;color:var(--ink);font-size:14px;margin-bottom:6px}.empty code{font-size:11px}.office{position:relative;min-height:380px;height:74vh;overflow:hidden;background:var(--bg);border:1px solid var(--line);border-radius:10px}.office-gl,.office-overlay{position:absolute;inset:0}.office-overlay{touch-action:none}.office-canvas{display:block}.office canvas{transition:opacity .2s}.office.loading canvas{opacity:0}.office-loader{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted);font-size:13px;z-index:2;background:var(--bg);text-align:center;line-height:1.7}.office.loading .office-loader{display:flex}.spin{width:24px;height:24px;border:2px solid var(--line);border-top-color:var(--focus);border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}#loaderText .btn{margin:12px 3px 0}.tip{position:fixed;width:290px;max-width:calc(100vw - 24px);display:none;pointer-events:none;z-index:30}.tip.pinned{pointer-events:auto}.agent-peek{padding:14px;background:var(--surface-raised);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow)}.peek-head{display:flex;align-items:center;gap:9px}.peek-head strong{font-size:12.5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.peek-head .agent-logo{width:25px;height:25px}.peek-status{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin:10px 0;font-size:11px;color:var(--s)}.peek-status i{width:6px;height:6px;border-radius:50%;background:var(--s)}.peek-activity{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--muted)}.peek-meta{display:flex;justify-content:space-between;gap:7px;border-top:1px solid var(--line);padding-top:9px;font-size:9.5px;color:var(--muted)}.peek-meta span:last-child{white-space:nowrap}.conn{display:none;position:fixed;left:20px;bottom:65px;padding:8px 12px;border:1px solid var(--error);background:var(--panel);color:var(--error);border-radius:6px;font-size:12px;z-index:35}.conn.on{display:block}.today-panel{width:min(345px,calc(100vw - 24px))}.today-big{display:flex;gap:23px;padding-bottom:14px;margin-bottom:9px;border-bottom:1px solid var(--line)}.today-big b{font-size:23px;letter-spacing:-.04em;display:block;font-variant-numeric:tabular-nums}.today-big span{font-size:10.5px;color:var(--muted)}.today-row{display:flex;align-items:center;gap:7px;font-size:12px;padding:6px 0}.today-row .n{margin-left:auto;font-size:10.5px;font-variant-numeric:tabular-nums;color:var(--muted)}.today-head{font-size:11px;color:var(--muted);font-weight:650;margin:15px 0 6px}.today-note{font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5}.today-tokens{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}.pip-error{color:var(--error);font-size:12px}.pip-preview{position:fixed;z-index:25;bottom:70px;left:16px;width:min(360px,calc(100vw - 32px));padding:13px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}.pip-preview p{font-size:12px;margin:0 0 10px}.pip-preview video{width:100%;margin-bottom:10px}.pip-preview button{margin-top:4px}.newver{font-size:11px;border:1px solid var(--tool);border-radius:6px;background:var(--panel);color:var(--tool);padding:5px 8px}.ind{display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;flex:none}.ind i{display:none}.ind:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--s)}[data-s=thinking]{--s:var(--thinking)}[data-s=tool]{--s:var(--tool)}[data-s=typing]{--s:var(--typing)}[data-s=waiting]{--s:var(--waiting)}[data-s=error]{--s:var(--error)}[data-s=done]{--s:var(--done)}[data-s=idle],[data-s=interrupted],[data-s=unknown]{--s:var(--idle)}.agent-logo.mono{filter:none}:root[data-theme=dark] .agent-logo.mono{filter:invert(1)}
+body.pip{padding:8px}body.pip .wrap{height:calc(100dvh - 16px);display:flex;flex-direction:column}body.pip header{margin-bottom:8px;gap:5px}body.pip h1,body.pip .newver,body.pip .controls>:not(#viewSeg):not(#qualSeg){display:none!important}body.pip .controls{width:auto}body.pip .summary{margin-left:0}body.pip #officeWrap{flex:1;min-height:0;display:flex;flex-direction:column}body.pip .office{flex:1;height:auto;min-height:120px}body.pip #main{overflow:auto;min-height:0}body.pip .grid{grid-template-columns:1fr}
+@media(min-width:1550px){:root{--side-width:400px}}@media(max-width:1240px){body.full .summary{display:none}h1::after{display:none}body.full header{gap:8px 12px}}@media(max-width:960px){:root{--side-width:340px}body.full header{padding:8px 12px;min-height:56px}h1{font-size:17px}h1 img{width:25px;height:25px}.controls>.btn{padding-inline:8px}#overviewBtn{display:none}body.full.telemetry-view #main{padding:16px}#pipBtn{display:none!important}}@media(max-width:760px){:root{--side-width:min(350px,92vw)}body.full header{flex-wrap:nowrap;gap:8px}body.full h1{font-size:15px}body.full h1 img{width:24px;height:24px}body.full .controls{gap:3px;flex-wrap:nowrap}.toolbar-space{display:none}body.full #sceneMenu,body.full #agentMenu>summary #agentName{display:none}body.full .settings-panel{position:fixed;right:10px;left:auto;top:calc(var(--bar,56px) + 7px);max-height:calc(100dvh - var(--bar,56px) - 20px)}body.full details.menu>summary{padding:6px 7px}body.full #settingsMenu>summary [data-t],body.full #todayMenu>summary [data-t],body.full .today-tokens{display:none}body.full .settings>summary:after{display:none}body.full.telemetry-view #main{margin-right:0}body.full .side{box-shadow:-8px 0 30px #22372c22}.roster-tools{padding-inline:13px}#viewSeg button{padding-inline:7px}body.full #todayMenu{margin-left:auto}.telemetry-heading{display:block}.telemetry-heading p{margin-top:5px}}@media(max-width:430px){h1 span{font-size:0}h1 span:after{content:'Bureau';font-size:15px}body.full header{gap:5px;padding-inline:9px}#viewSeg button{font-size:10.5px;padding-inline:6px}body.full .controls{gap:2px}body.full .settings>summary{padding-inline:6px}.grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+.btn,.seg button{white-space:nowrap}body.native #pipBtn{display:none!important}#appearance{padding:5px 8px;background:var(--surface-inset);color:var(--ink);border:1px solid var(--line);border-radius:5px}.setting-row{margin-bottom:10px}h1::after{display:none}.srow{padding-block:8px}.source-connection strong{font-weight:600}
 </style>
 </head>
 <body>
@@ -443,8 +30,8 @@ button,summary,input{touch-action:manipulation}button:focus-visible,summary:focu
     <button class="newver" id="newVer" hidden></button>
     <div class="controls"><button class="btn" id="overviewBtn" title="Вернуться к общему виду">Общий вид</button>
       <div class="seg" id="viewSeg">
-        <button data-v="office" data-t="office"></button>
-        <button data-v="list" data-t="list"></button>
+        <button data-v="office" id="sceneView" data-t="office"></button>
+        <button data-v="list" id="telemetryView" data-t="list"></button>
       </div>
       <div class="seg" id="qualSeg">
         <button data-v="mid" data-t="qMid"></button>
@@ -480,7 +67,7 @@ button,summary,input{touch-action:manipulation}button:focus-visible,summary:focu
       <details class="settings menu" id="settingsMenu">
         <summary class="btn" aria-controls="settingsPanel" data-a="settings"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.1 2.6h-4l-.4 2.4A7.5 7.5 0 0 0 7.1 6.5l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-.9a7.5 7.5 0 0 0 2.6 1.5l.4 2.4h4l.4-2.4a7.5 7.5 0 0 0 2.6-1.5l2.3.9 2-3.4z"/></svg><span data-t="settings"></span></summary>
         <div class="settings-panel prefs-panel" id="settingsPanel">
-          <div class="setting-toggles">
+          <label class="setting-row" for="appearance">Оформление<select id="appearance"><option value="light">Светлое</option><option value="dark">Тёмное</option></select></label><div class="setting-toggles">
             <label class="tog"><span data-t="subagents"></span><input type="checkbox" role="switch" id="showSub"></label>
             <label class="tog" id="idleToggle"><span data-t="showIdle"></span><input type="checkbox" role="switch" id="showIdle"></label>
             <label class="tog" id="agentBadgeToggle"><span data-t="showAgent"></span><input type="checkbox" role="switch" id="showAgent"></label>
@@ -509,7 +96,12 @@ button,summary,input{touch-action:manipulation}button:focus-visible,summary:focu
     <div class="side-pane" id="sideList">
       <div class="side-head"><b id="sideTitle"></b><span class="side-count" id="sideCount"></span>
         <button class="icon-btn" id="sideHide" aria-label="Скрыть команду"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L21 12l-6.5 6.5M3 12h17"/></svg></button></div>
-      <div class="roster-tools"><input id="agentSearch" name="agent-search" type="search" placeholder="Найти агента…" aria-label="Поиск по имени агента" autocomplete="off"><div class="roster-filters" role="group" aria-label="Статусы"><button data-filter="all" aria-pressed="true">Все</button><button data-filter="attention" aria-pressed="false">Нужен ответ</button><button data-filter="working" aria-pressed="false">Работают</button><button data-filter="unknown" aria-pressed="false">Нет данных</button></div></div><div class="side-body" id="sideRows"></div><div id="dotConnection" class="source-note" role="status"></div>
+      <div class="roster-tools">
+        <div class="roster-scope" role="group" aria-label="Период сессий"><button id="currentScope" data-scope="current" aria-pressed="true">Сейчас <b id="currentCount">0</b></button><button id="historyScope" data-scope="history" aria-pressed="false">История <b id="historyCount">0</b></button></div>
+        <input id="agentSearch" name="agent-search" type="search" placeholder="Название, папка или ID…" aria-label="Поиск по названию, папке или ID" autocomplete="off">
+        <div class="roster-filters" role="group" aria-label="Статусы"><button data-filter="all" aria-pressed="true">Все</button><button data-filter="attention" aria-pressed="false">Нужен ответ</button><button data-filter="working" aria-pressed="false">Работают</button><button data-filter="unknown" aria-pressed="false">Неизвестно</button></div>
+        <p class="roster-hint" id="rosterHint">Статусы по последним событиям. Процесс может быть недоступен.</p>
+      </div><div class="side-body" id="sideRows"></div><div id="dotConnection" class="source-note"></div>
     </div>
     <div class="side-pane" id="sideDetail" inert>
       <div class="side-head"><button class="icon-btn" id="sideBack" aria-label="Назад к команде"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button><b id="detailTitle"></b></div>
@@ -527,7 +119,7 @@ button,summary,input{touch-action:manipulation}button:focus-visible,summary:focu
 <script src="/popout.js"></script>
 
 <script>
-I18N.ru = {...I18N.en, html:'ru', langName:'Русский', title:'Ubi Bureau', settings:'Настройки', scene:'Сцена', agents:'Источники', language:'Язык', showAgent:'Подписи агентов', pip:'Отдельное окно', pipClose:'Закрыть отдельное окно', pipOn:'Офис открыт в отдельном окне.', pipStop:'Закрыть просмотр', pipFailed:'Не удалось открыть окно.', pipQuiet:'Нет агентов, которым требуется внимание.', office:'Офис', list:'Список', wentHome:'вне офиса', loading3d:'Открываем офис…', failed3d:'Не удалось загрузить 3D-сцену.', all:'Все источники', subagents:'Показывать субагентов', showIdle:'Показывать неактивных', notify:'Уведомления', notifyBlocked:'Уведомления не разрешены.', sound:'Звук', stuck:m=>`Нет новых событий ${m} мин`, today:'Сегодня', turnsL:'ходов', tokensL:'токенов', agentsL:'агентов', context:'Контекст', topProjects:'Активные проекты', summaryNote:'По локальным журналам с полуночи. Большие журналы могут быть прочитаны частично.', noUsage:'Сегодня пока нет записей.', agentsTitle:'Команда', recent:'Последние сообщения', noMessages:'В журнале нет сообщений.', back:'Назад', hidePanel:'Скрыть команду', showPanel:'Показать команду', modelL:'Модель', folderL:'Папка', privateNote:'Содержимое сообщений скрыто.', loadingMsgs:'Загружаем…', disconnected:'Связь прервана. Подключаемся…', needsYou:'Нужен ответ', working:'Работают', finished:'Завершены', idle:'Неактивны', unknown:'Нет свежих данных', thinking:'Обдумывает', tool:'Выполняет', typing:'Пишет ответ', waiting:'Нужен ответ', done:'Завершён', interrupted:'Прерван', error:'Ошибка', copy:'Копировать команду', copied:'Скопировано', sub:'Субагент', auto:'Авто', empty:'Пока нет доступных сессий. Новые локальные агенты появятся здесь автоматически.', doneNote:p=>`${p}: завершено`};
+I18N.ru = {...I18N.en, html:'ru', langName:'Русский', title:'Ubi Bureau', settings:'Настройки', scene:'Сцена', agents:'Источники', language:'Язык', showAgent:'Подписи агентов', pip:'Отдельное окно', pipClose:'Закрыть отдельное окно', pipOn:'Офис открыт в отдельном окне.', pipStop:'Закрыть просмотр', pipFailed:'Не удалось открыть окно.', pipQuiet:'Нет агентов, которым требуется внимание.', office:'Сцена', list:'Телеметрия', wentHome:'вне офиса', loading3d:'Открываем офис…', failed3d:'Не удалось загрузить 3D-сцену.', all:'Все источники', subagents:'Показывать субагентов', showIdle:'Неактивные в текущем списке', notify:'Уведомления', notifyBlocked:'Уведомления не разрешены.', sound:'Звук', stuck:m=>`Нет новых событий ${m} мин`, today:'Сегодня', turnsL:'ходов', tokensL:'токенов', agentsL:'агентов', context:'Контекст', topProjects:'Активные проекты', summaryNote:'По локальным журналам с полуночи. Большие журналы могут быть прочитаны частично.', noUsage:'Сегодня пока нет записей.', agentsTitle:'Команда', recent:'Последние сообщения', noMessages:'В журнале нет сообщений.', back:'Назад', hidePanel:'Скрыть команду', showPanel:'Показать команду', modelL:'Модель', folderL:'Папка', privateNote:'Содержимое сообщений скрыто.', loadingMsgs:'Загружаем…', disconnected:'Связь прервана. Подключаемся…', needsYou:'Нужен ответ', working:'Работают', finished:'Завершены', idle:'Неактивны', unknown:'Нет свежих данных', thinking:'Обдумывает', tool:'Выполняет', typing:'Пишет ответ', waiting:'Нужен ответ', done:'Завершён', interrupted:'Прерван', error:'Ошибка', copy:'Копировать команду', copied:'Скопировано', sub:'Субагент', auto:'Авто', empty:'Пока нет доступных сессий. Новые локальные агенты появятся здесь автоматически.', doneNote:p=>`${p}: завершено`};
 for(const [key,label,src] of [['dot','Dot','/assets/agents/dot.svg'],['codex','Codex','/assets/agents/codex.svg']]) { const b=OFFICE_AGENT_BADGES[key]; if(b){b.label=label;b.logo=src;b.image.src=src;} }
 // Language: your pick in the 🌐 menu, else the language of your prompts
 // (the server guesses it), else the browser's, else English.
@@ -566,13 +158,14 @@ const store = (() => {
   return { get, set };
 })();
 
-const PREF_DEFAULTS = { view: 'office', quality: 'high', scene: 'office', agents: [], showSub: false, showIdle: false, showAgent: true, sound: false, notify: true, side: true, lang: 'ru' };
+const PREF_DEFAULTS = { view: 'office', quality: 'high', scene: 'office', agents: [], showSub: false, showIdle: false, showAgent: true, sound: false, notify: true, side: true, lang: 'ru', theme: 'dark' };
 function validAgentId(v) {
   return typeof v === 'string' && v !== 'all' && /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(v) && !Object.hasOwn(Object.prototype, v);
 }
 function validPreference(k, v) {
   if (!Object.hasOwn(PREF_DEFAULTS, k)) return false;
   if (typeof PREF_DEFAULTS[k] === 'boolean') return typeof v === 'boolean';
+  if (k === 'theme') return ['light','dark'].includes(v);
   if (k === 'view') return ['office', 'list'].includes(v);
   if (k === 'quality') return ['mid', 'high'].includes(v);
   // Which agents to show; none selected means all of them.
@@ -595,6 +188,7 @@ function readPreferences() {
 const NATIVE = new URLSearchParams(location.search).get('native') === '1';
 const PIP = new URLSearchParams(location.search).get('pip') === '1';
 if (PIP) document.body.classList.add('pip');
+if (NATIVE) document.body.classList.add('native');
 
 // ?view=office&quality=high&scene=pirate (what `--scene` opens) sets the prefs.
 {
@@ -606,12 +200,13 @@ if (PIP) document.body.classList.add('pip');
     } catch { /* malformed preferences use the saved defaults */ }
   }
   for (const k of ['view', 'quality', 'scene', 'lang']) if (validPreference(k, q.get(k))) store.set(k, q.get(k));
-  if (location.search) history.replaceState(null, '', location.pathname + (PIP ? '?pip=1' : ''));
+  const mode = new URLSearchParams(); if(NATIVE)mode.set('native','1');if(PIP)mode.set('pip','1');
+  if (location.search) history.replaceState(null, '', location.pathname + (mode.size ? '?' + mode : ''));
 }
 
 const state = {
   ...readPreferences(),
-  quality:'high', search:'', statusFilter:'all',
+  quality:'high', search:'', statusFilter:'all', scope:'current', historyLimit:60, connected:false, receivedAt:null,
   // The dashboard is always the full-window office with the agent panel; the pop-out keeps its compact views.
   full: !PIP,
   scenes: [],
@@ -747,22 +342,26 @@ function card(s, now) {
 }
 
 const matchAgent = (s) => !state.agents.length || state.agents.includes(s.agent);
+const staleError = s => s.status === 'error' && (s.presence?.stale || (Number.isFinite(s.presence?.observedAt || s.lastEventAt) && Date.now()-state.skew-(s.presence?.observedAt || s.lastEventAt)>120000));
+const isHistory = s => s.agent !== 'dot' && (['done','interrupted','completed'].includes(s.status) || staleError(s));
+const inScene = s => s.agent === 'dot' || ACTIVE.has(s.status) || s.status === 'waiting' || (s.status === 'error' && !staleError(s));
+function rosterPool() {
+  return state.data.sessions.filter(s => matchAgent(s) && (state.showSub || !s.subagent));
+}
 function visible() {
-  return state.data.sessions.filter((s) =>
-    matchAgent(s) &&
-    (state.showSub || !s.subagent) &&
-    (state.showIdle || s.status !== 'idle') &&
-    (!state.search || agentNameFor(s).toLocaleLowerCase().includes(state.search)) &&
-    (state.statusFilter === 'all' || (state.statusFilter === 'working' ? ACTIVE.has(s.status) : state.statusFilter === 'attention' ? ['waiting','error'].includes(s.status) : s.status === 'unknown' || s.snapshotStale)));
+  return rosterPool().filter(s =>
+    (state.scope === 'history' ? isHistory(s) : !isHistory(s) && (state.showIdle || s.status !== 'idle')) &&
+    (!state.search || [agentNameFor(s),s.cwd,s.id,s.project,s.agent,s.model].some(v => String(v || '').toLocaleLowerCase().includes(state.search))) &&
+    (state.scope === 'history' || state.statusFilter === 'all' || (state.statusFilter === 'working' ? ACTIVE.has(s.status) : state.statusFilter === 'attention' ? ['waiting','error'].includes(s.status) : s.status === 'unknown' || s.snapshotStale)));
 }
 
 function render() {
   const now = Date.now() - state.skew;
   const list = visible();
-  const all = state.data.sessions.filter((s) => matchAgent(s) && (state.showSub || !s.subagent));
+  const all = rosterPool();
 
-  const count = (f) => all.filter((s) => f(s.status)).length;
-  document.getElementById('summary').innerHTML = GROUPS.filter((g,i)=>i<3 || (g.key==='unknown' && count(g.match)>0)).map((g) => {
+  const count = (f) => all.filter((s) => !isHistory(s) && f(s.status)).length;
+  document.getElementById('summary').innerHTML = GROUPS.filter(g => ['needsYou','working','unknown'].includes(g.key)).map((g) => {
     const n = count(g.match); if(!n)return '';
     const color = g.key === 'needsYou' ? 'var(--waiting)' : g.key === 'working' ? 'var(--tool)' : g.key === 'unknown' ? 'var(--faint)' : 'var(--done)';
     return `<span class="chip"><span class="dot" style="color:${color}"></span>${g.key === 'unknown' ? 'Нет данных' : L[g.key]} <b>${n}</b></span>`;
@@ -775,17 +374,19 @@ function render() {
   document.title = (needs ? `(${needs}!) ` : working ? `(${working}) ` : '') + 'Ubi Bureau';
 
   const main = document.getElementById('main');
-  const officeMode = state.view === 'office' || state.full;
+  const officeMode = state.view === 'office';
+  document.body.classList.toggle('telemetry-view', state.full && !officeMode);
   document.getElementById('officeWrap').style.display = officeMode ? '' : 'none';
   // The office decides who sits at a desk and who wanders around.
-  const officeList = all;
+  const officeList = all.filter(inScene);
   const poppedOut = !!popout?.win;
   // Wait for the first snapshot so people start at their places instead of
   // all walking in through the door.
   if (office && state.loaded) {
+    office.telemetry = {sessions:all.filter(s=>!isHistory(s)),connected:state.connected,receivedAt:state.receivedAt,skew:state.skew};
     office.showAgent = state.showAgent;
     office.setVisible(officeMode && !poppedOut);
-    office.update(officeList);
+    office.update(officeList, {snapshot:state.data.sessions});
   }
   const agents = new Set(officeList.map(s => s.agent));
   const legend = document.getElementById('agentLegend');
@@ -811,8 +412,8 @@ function render() {
     main.innerHTML = `<div class="empty">${esc(PIP ? L.pipQuiet : L.empty)}</div>`;
     return;
   }
-  main.innerHTML = groups.map((g) => {
-    const items = list.filter((s) => g.match(s.status));
+  main.innerHTML = (state.full ? `<div class="telemetry-heading"><h2>${state.scope === 'history' ? 'История сессий' : 'Телеметрия'}</h2><p>Последние события локальных источников. ${state.scope === 'history' ? 'Завершённые сессии не участвуют в сцене.' : 'Неизвестный статус показан явно.'}</p></div>` : '') + groups.map((g) => {
+    const items = list.filter((s) => g.match(s.status)).slice(0, state.scope === 'history' ? state.historyLimit : 160);
     if (!items.length) return '';
     return `<section><h2>${L[g.key]} <span class="n">${items.length}</span></h2><div class="grid">${items.map((s) => card(s, now)).join('')}</div></section>`;
   }).join('');
@@ -826,17 +427,15 @@ function tickTimes() {
     const s = byKey.get(el.dataset.time);
     if (s) el.textContent = timeLabel(s, now);
   });
+  document.querySelectorAll('[data-event-age]').forEach(el=>{const s=byKey.get(el.dataset.eventAge);if(s)el.textContent=eventAge(s);});
 }
 
 function statusLabel(s) {
   if (s.source !== 'dot-snapshot') return L[s.status] || s.status;
-  if (s.snapshotStale || s.status === 'unknown') return 'Нет свежих данных';
-  return {running:'Работает',completed:'Завершён',idle:'Неактивен',waiting:'Нужен ответ',error:'Ошибка',interrupted:'Прерван'}[s.lastObservedStatus] || 'Снимок';
+  return 'Live-статус недоступен';
 }
 function onData(data) {
-  const dc=data.dotConnection, el=document.getElementById('dotConnection');
-  el.textContent = !dc?.available ? 'Dot: нет снимка. Локальные сессии обновляются автоматически.' :
-    `Dot: снимок ${new Date(dc.observedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}. ${dc.stale ? 'Нет свежих данных.' : 'Не непрерывная трансляция.'} Локальные сессии: журналы.`;
+  state.receivedAt = Date.now();
 
   for (const s of data.sessions) {
     if (!validAgentId(s.agent)) continue;
@@ -894,11 +493,20 @@ function chime(kind) {
   } catch {}
 }
 
+function markDisconnected() {
+  state.connected=false;
+  for(const s of state.data.sessions){
+    if(!ACTIVE.has(s.status)&&s.status!=='waiting')continue;
+    s.presence={...s.presence,kind:'unknown',live:false,stale:true,lastKnownStatus:s.status,reason:'connection-lost'};
+    s.status='unknown';
+  }
+  render();
+}
 function connect() {
   const es = new EventSource('/events');
   const conn = document.getElementById('conn');
-  es.onmessage = (e) => { conn.classList.remove('on'); onData(JSON.parse(e.data)); };
-  es.onerror = () => conn.classList.add('on');
+  es.onmessage = (e) => { conn.classList.remove('on'); state.connected=true; onData(JSON.parse(e.data)); };
+  es.onerror = () => { conn.classList.add('on'); markDisconnected(); };
 }
 
 // Native disclosure keeps settings keyboard-accessible without a modal focus trap.
@@ -939,8 +547,11 @@ soundBox.addEventListener('change', () => {
 showAgent.addEventListener('change', () => { state.showAgent = showAgent.checked; store.set('showAgent', state.showAgent); syncControls(); render(); });
 
 const notifyBtn = document.getElementById('notify');
+document.getElementById('appearance').addEventListener('change', e => {state.theme=e.target.value;store.set('theme',state.theme);syncControls();});
 function syncControls() {
-  const view = state.full ? 'office' : state.view;
+  if(document.documentElement.dataset.theme!==state.theme){document.documentElement.dataset.theme=state.theme;window.dispatchEvent(new Event('bureau-theme'));}
+  document.getElementById('appearance').value=state.theme;
+  const view = state.view;
   document.querySelectorAll('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === state.view));
   document.querySelectorAll('#qualSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === state.quality));
   document.getElementById('qualSeg').style.display = view === 'office' ? '' : 'none';
@@ -953,10 +564,13 @@ function syncControls() {
   document.getElementById('agentBadgeToggle').style.display = view === 'office' ? '' : 'none';
   popout?.sync(PIP, view);
   // On only when both the switch and the browser allow it; blocked shows how to unblock.
-  const perm = window.Notification ? Notification.permission : 'unsupported';
+  const perm = NATIVE ? 'native-denied' : window.Notification ? Notification.permission : 'unsupported';
   document.getElementById('notifyToggle').style.display = perm === 'unsupported' ? 'none' : '';
   notifyBtn.checked = state.notify && perm === 'granted';
-  document.getElementById('notifyNote').hidden = perm !== 'denied';
+  notifyBtn.disabled = ['native-denied','denied'].includes(perm);
+  const note=document.getElementById('notifyNote');
+  note.hidden = !['native-denied','denied'].includes(perm);
+  note.textContent = perm === 'native-denied' ? 'Системные уведомления недоступны в этом нативном окне. Можно включить звук.' : L.notifyBlocked;
 }
 notifyBtn.addEventListener('change', async () => {
   if (notifyBtn.checked && Notification.permission !== 'granted') {
@@ -978,7 +592,7 @@ document.addEventListener('click', (e) => {
 // ---- office view
 const tip = document.getElementById('tip');
 let tipKey = null, tipPinned = false, tipAt = { x: 0, y: 0 };
-function agentNameFor(s) { return s.title || s.project || (s.agent === 'dot' ? "vas'" : AGENT_NAME[s.agent]) || s.agent; }
+function agentNameFor(s) { return s.title || s.project || (s.agent === 'dot' ? 'Dot' : AGENT_NAME[s.agent]) || s.agent; }
 function sourceFor(s) { return `${s.agent === 'dot' ? 'Dot' : AGENT_NAME[s.agent] || s.agent}${s.subagent ? ' · Субагент' : s.agent === 'dot' ? ' · Координатор' : ''}`; }
 function telemetry(s, compact=false) {
   if(s.source==='dot-snapshot')return '';
@@ -994,13 +608,36 @@ function excerpt(s) {
   return text ? `<div class="session-excerpt" title="${esc(text)}"><span>${reply?'Ответ':'Запрос'}</span> ${esc(String(text).slice(0,220))}</div>` : '';
 }
 function eventAge(s) {
-  const at=s.source==='dot-snapshot'?s.observedAt:s.lastEventAt;
-  return Number.isFinite(at)?`${s.source==='dot-snapshot'?'Снимок':'Событие'}: ${dur(Date.now()-state.skew-at)} назад`:'';
+  const at=s.source==='dot-snapshot'?s.observedAt:s.presence?.observedAt||s.lastEventAt;
+  return Number.isFinite(at)?`${s.source==='dot-snapshot'?'Снимок':'Событие'}: ${dur(Date.now()-state.skew-at)} назад`:'Время события недоступно';
 }
-let dotExpanded=false;
+function evidenceLabel(s) {
+  if(s.presence?.source==='demo' && s.agent!=='dot')return 'Демонстрация';
+  if(s.source==='dot-snapshot')return 'Снимок Dot';
+  if(s.presence?.live)return 'Прямой сигнал';
+  return s.presence?.source==='database' ? 'База сессий' : s.source==='magpie' ? 'Magpie' : 'Журнал сессии';
+}
+function presenceNote(s) {
+  if(s.source==='dot-snapshot') return 'Live-статус и число активных субагентов недоступны. Снимок даёт только контекст главного Dot.';
+  if(s.presence?.live)return 'Статус подтверждён текущим прямым сигналом источника.';
+  if(s.status==='unknown')return `${({'connection-lost':'Соединение с локальным потоком прервано. Текущий статус неизвестен.','stale-evidence':'Нет новых событий более двух минут.','no-observation':'Время последнего события неизвестно.','historical-session':'Сохранённая сессия без подтверждённой активности.'})[s.presence?.reason] || 'Нет актуального подтверждения работы процесса.'}${s.presence?.lastKnownStatus ? ` Последний известный статус: ${L[s.presence.lastKnownStatus] || s.presence.lastKnownStatus}.` : ''}`;
+  return isHistory(s) ? 'Сессия завершена по журналу. В сцене не отображается.' : 'Последнее действие известно из журнала. Доступность процесса не подтверждена.';
+}
+function renderSources() {
+  const dc=state.data.dotConnection;
+  const at=state.receivedAt ? hhmm(state.receivedAt) : 'ожидание';
+  const dot=!dc?.available ? 'Снимок недоступен' : `${dc.stale ? 'Устаревший снимок' : 'Последний снимок'} ${hhmm(dc.observedAt)}`;
+  const box=document.getElementById('dotConnection');
+  box.dataset.connected=String(state.connected);
+  if(!box.querySelector('#sourceDetails'))box.innerHTML='<div class="source-connection"><i class="connection-indicator" aria-hidden="true"></i><strong></strong><span style="margin-left:auto"></span></div><p></p><button class="source-details" id="sourceDetails">Источники и достоверность</button>';
+  box.querySelector('strong').textContent=state.connected?'Локальный поток подключён':'Локальный поток недоступен';
+  box.querySelector('.source-connection span').textContent=at;
+  box.querySelector('p').textContent=`Dot: ${dot}. Активные субагенты: недоступно.`;
+}
 function placeTip() {
   if (!tipKey) return;
   const anchor = office?.getAnchor?.(tipKey) || tipAt;
+  if(!anchor){hideTip();return;}
   const r = tip.getBoundingClientRect();
   const canvas = document.getElementById('office').getBoundingClientRect();
   const right = state.side && innerWidth > 760 ? sideEl.getBoundingClientRect().left : innerWidth;
@@ -1041,7 +678,7 @@ function setLoading(on, text) {
   officeEl.classList.toggle('loading', on);
   if (text) document.getElementById('loaderText').textContent = text;
 }
-function showSceneError(){ officeKind=null; setLoading(true,'3D-сцена недоступна'); document.getElementById('loaderText').innerHTML='Не удалось открыть 3D-сцену.<br><button class="btn" id="retryScene">Повторить</button>'; document.querySelector('.office-loader .spin').style.display='none'; document.getElementById('retryScene').onclick=()=>{document.querySelector('.office-loader .spin').style.display='';makeOffice();}; }
+function showSceneError(){ officeKind=null; setLoading(true,'3D-сцена недоступна'); document.getElementById('loaderText').innerHTML='Не удалось открыть 3D-сцену.<br><button class="btn" id="retryScene">Повторить</button><button class="btn" id="openTelemetry">Открыть телеметрию</button>'; document.querySelector('.office-loader .spin').style.display='none'; document.getElementById('retryScene').onclick=()=>{document.querySelector('.office-loader .spin').style.display='';makeOffice();}; document.getElementById('openTelemetry').onclick=()=>document.getElementById('telemetryView').click(); }
 async function makeOffice() {
   const high = true;
   const scene = high && state.scene !== 'office' && state.scenes.some((x) => x.id === state.scene) ? state.scene : 'office';
@@ -1250,7 +887,7 @@ function measureBar() {
   document.documentElement.style.setProperty('--bar', `${Math.round(h)}px`);
 }
 function syncFull() {
-  document.getElementById('sideTitle').textContent = L.agentsTitle;
+  document.getElementById('sideTitle').textContent = 'Сессии';
   document.getElementById('sideHide').title = L.hidePanel;
   document.getElementById('sideHide').setAttribute('aria-label', L.hidePanel);
   document.getElementById('sideBack').title = L.back;
@@ -1260,7 +897,7 @@ function syncFull() {
 
 // Agent filter: one chip per client in use, any number selected; none means all.
 function renderChips() {
-  const pool = state.data.sessions.filter((s) => (state.showSub || !s.subagent) && (state.showIdle || s.status !== 'idle'));
+  const pool = state.data.sessions.filter(s => (state.showSub || !s.subagent) && (state.scope === 'history' ? isHistory(s) : !isHistory(s)));
   const count = new Map();
   for (const s of pool) count.set(s.agent, (count.get(s.agent) || 0) + 1);
   const order = Object.keys(OFFICE_AGENT_BADGES);
@@ -1299,38 +936,34 @@ function renderSide() {
   if (!state.full) return;
   syncFull();
   const now = Date.now() - state.skew;
-  const list = visible();
+  const list = visible().sort((a,b)=>(b.lastEventAt||0)-(a.lastEventAt||0));
   document.getElementById('sideCount').textContent = list.length;
-  document.getElementById('sideTabCount').textContent = `${L.agentsTitle} · ${list.length}`;
-  const rows = ['local', 'dot'].map(source => {
-    const groupList = list.filter(s => (s.agent === 'dot') === (source === 'dot'));
-    if (!groupList.length) return '';
-    const snapshot=source==='dot'&&groupList.every(s=>s.status==='unknown');
-    const expanded=dotExpanded||!!state.search||state.statusFilter==='unknown';
-    const head=snapshot?`<button class="snapshot-toggle side-group" aria-expanded="${expanded}">Команда Dot <span>${groupList.length} · нет свежих данных ${expanded?'⌃':'⌄'}</span></button>`:`<div class="side-group">${source==='dot'?'Команда Dot':'Локальные сессии'}</div>`;
-    if(snapshot&&!expanded)return head;
-    return head + GROUPS.map((g) => {
-    const items = groupList.filter((s) => g.match(s.status)).sort((a,b)=>(b.lastEventAt||0)-(a.lastEventAt||0));
-    if (!items.length) return '';
-    return `<div class="side-group">${esc(L[g.key])} · ${items.length}</div>` + items.map((s, i) => {
-      const act = s.stuck ? L.stuck(s.stuck) : s.activity || '';
-      return `<button class="srow${s.subagent ? ' sub' : ''}" data-key="${esc(s.key)}" style="--s:${statusColor(s.status)};--i:${Math.min(i + (g.key === 'working' ? 3 : g.key === 'finished' ? 8 : 0), 14)}">
-        ${agentLogo(s.agent) || '<span></span>'}<span class="nm">${esc(agentNameFor(s))}</span>
-        <span class="tm" data-time="${esc(s.key)}"></span>
-        <span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act ? `<span>${esc(act)}</span>` : ''}</span>${excerpt(s)}${telemetry(s,true)}${contextBar(s.context)}</button>`;
+  document.getElementById('sideTabCount').textContent = `Сессии · ${list.length}`;
+  const pool=rosterPool();
+  document.getElementById('currentCount').textContent=pool.filter(s=>!isHistory(s)).length;
+  document.getElementById('historyCount').textContent=pool.filter(isHistory).length;
+  document.querySelector('.roster-filters').hidden=state.scope==='history';
+  document.getElementById('rosterHint').textContent=state.scope==='history' ? 'Завершённые сессии доступны для просмотра, вне сцены.' : 'Статус по последнему событию. Доступность процесса не гарантируется.';
+  const shown=state.scope==='history' ? list.slice(0,state.historyLimit) : list;
+  const rows=GROUPS.map(g=>{
+    const items=shown.filter(s=>g.match(s.status));
+    // Keep existing pointer targets in place; append new sessions rather than freezing updates.
+    if(document.getElementById('sideRows').matches(':hover')){const order=new Map([...document.querySelectorAll('#sideRows .srow')].map((el,i)=>[el.dataset.key,i]));items.sort((a,b)=>(order.get(a.key)??1e6)-(order.get(b.key)??1e6));}
+    if(!items.length)return '';
+    return `<div class="side-group">${esc(L[g.key])}<span>${items.length}</span></div>`+items.map(s=>{
+      const act=s.stuck ? L.stuck(s.stuck) : s.activity||'';
+      return `<button class="srow${s.subagent?' sub':''}" data-key="${esc(s.key)}" data-status="${esc(s.status)}" style="--s:${statusColor(s.status)}">${agentLogo(s.agent)||'<span></span>'}<span class="nm">${esc(agentNameFor(s))}</span><span class="tm" data-time="${esc(s.key)}">${esc(timeLabel(s,now))}</span><span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act?`<span>${esc(act)}</span>`:''}</span>${excerpt(s)}${telemetry(s,true)}${contextBar(s.context)}<div class="row-source"><span>${esc(evidenceLabel(s))}${s.presence?.stale?' · устарел':''}</span>${s.cwd?`<span title="${esc(s.cwd)}">${esc(s.project||s.cwd.split('/').filter(Boolean).pop())}</span>`:''}</div></button>`;
     }).join('');
-  }).join('');
-  }).join('');
+  }).join('')+(shown.length<list.length?`<button class="btn history-more" id="historyMore">Ещё ${Math.min(60,list.length-shown.length)} из ${list.length-shown.length}</button>`:'');
   const box = document.getElementById('sideRows');
-  const html = rows || `<div class="msgs-note">${esc(L.empty)}</div>`;
-  // Rows re-sort as statuses change; hold them still while the pointer is on
-  // the list so a click lands on the agent you aimed at, and catch up on leave.
-  if (box.dataset.html !== html && box.matches(':hover') && box.dataset.html && !rowsNow) { box.dataset.stale = '1'; }
-  else if (box.dataset.html !== html) {
-    box.innerHTML = html; box.dataset.html = html; delete box.dataset.stale;
-    box.querySelector('.snapshot-toggle')?.addEventListener('click',()=>{dotExpanded=!dotExpanded;renderNow();});
-    box.querySelectorAll('[data-time]').forEach((el) => { const s = list.find((x) => x.key === el.dataset.time); if (s) el.textContent = timeLabel(s, now); });
+  const html=rows||`<div class="empty"><strong>${state.search?'Ничего не найдено':state.scope==='history'?'История пуста':'Нет подходящих сессий'}</strong>${state.search?'Попробуйте название проекта, папку или ID.':'Новые локальные сессии появятся автоматически.'}</div>`;
+  // Preserve focus and the agent under the pointer while accepting new sessions immediately.
+  if(box.dataset.html!==html){
+    const focused=box.contains(document.activeElement)?document.activeElement?.dataset.key:null;
+    box.innerHTML=html;box.dataset.html=html;
+    if(focused)box.querySelector(`.srow[data-key="${CSS.escape(focused)}"]`)?.focus({preventScroll:true});
   }
+  renderSources();
   if (sel) renderDetail();
 }
 
@@ -1339,6 +972,7 @@ function openDetail(key) {
   if (!state.side) setSide(true);
   document.getElementById('sideList').inert = true;
   document.getElementById('sideDetail').inert = false;
+  document.getElementById('sideBack').focus();
   if (convo.key !== key) convo = { key, at: null, messages: null, private: false, busy: false };
   // Build the details off-screen this frame and start the slide on the next,
   // so the click doesn't also pay for layout in the slide's first frame.
@@ -1374,22 +1008,28 @@ function renderDetail(scrollDown) {
           : `<div class="msg ${m.role}">${esc(m.text)}<span class="at">${esc(hhmm(m.at))}</span></div>`).join('')}</div>`;
   const resume = resumeCmd(s);
   const html = `
-    <div class="detail-source">${esc(sourceFor(s))}</div><button class="btn focus-agent" data-focus-agent="${esc(s.key)}">Показать в офисе</button>
+    <div class="detail-source">${esc(sourceFor(s))} · ${esc(evidenceLabel(s))}</div>${inScene(s) ? `<button class="btn focus-agent" data-focus-agent="${esc(s.key)}">Показать в офисе</button>` : ''}<div class="presence-note">${esc(presenceNote(s))}</div>
     <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(statusLabel(s))}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
     ${s.source !== 'dot-snapshot' ? `<dl class="dmeta">
       <dt>${esc(L.modelL)}</dt><dd>${esc(s.model || '—')}${s.subagent ? ` · ${esc(L.sub)}` : ''}</dd>
       <dt>${esc(L.folderL)}</dt><dd class="mono" title="${esc(s.cwd || '')}">${esc(s.cwd || '—')}</dd>
       <dt>${esc(L.today)}</dt><dd>${s.today ? `${s.today.turns} ${esc(L.turnsL)} · ${fmtTokens(s.today.tokens)} ${esc(L.tokensL)}` : '—'}</dd>
-      <dt>Длительность</dt><dd data-time="${esc(s.key)}"></dd>
+      <dt>ID</dt><dd class="mono">${esc(s.id || '—')}</dd>
+      <dt>Последний сигнал</dt><dd data-event-age="${esc(s.key)}"></dd>
+      <dt>Время</dt><dd data-time="${esc(s.key)}"></dd>
     </dl>` : ''}
-    ${s.source === 'dot-snapshot' ? `<p class="msgs-note">Снимок ${esc(new Date(s.observedAt).toLocaleString())}. ${s.snapshotStale ? 'Устарел: текущий статус неизвестен.' : 'Последний полученный статус, не live-поток.'} Модель и расход не экспортируются.</p>` : ''}
-    ${contextBar(s.context)}${excerpt(s)}<div class="detail-source">${esc(eventAge(s))}</div>
+    ${s.source === 'dot-snapshot' ? `<p class="msgs-note">Снимок ${esc(new Date(s.observedAt).toLocaleString())}. ${s.snapshotStale ? 'Устарел: текущий статус неизвестен.' : 'Последний полученный статус, не live-поток.'} Live-статус и число активных субагентов недоступны. Модель и расход не экспортируются.</p>` : ''}
+    ${contextBar(s.context)}${excerpt(s)}<div class="detail-source" data-event-age="${esc(s.key)}"></div>
     ${resume ? `<div class="dactions"><button class="copy" data-copy="${esc(resume)}">${L.copy}</button></div>` : ''}
     ${s.source === 'dot-snapshot' ? '' : `<div class="side-sec">${esc(L.recent)}</div>${msgs}`}`;
   // The turn timer ticks on its own (tickTimes), so the panel only redraws when something changed.
   if (body.dataset.html !== html) {
+    const focused=body.contains(document.activeElement)?document.activeElement:null;
+    const identity=focused&&['data-copy','data-focus-agent','href'].map(a=>[a,focused.getAttribute(a)]).find(([,v])=>v!==null);
     body.innerHTML = html; body.dataset.html = html;
+    if(identity)queueMicrotask(()=>body.querySelector(`[${identity[0]}="${CSS.escape(identity[1])}"]`)?.focus({preventScroll:true}));
     const t = body.querySelector('[data-time]'); if (t) t.textContent = timeLabel(s, now);
+    body.querySelectorAll('[data-event-age]').forEach(el=>el.textContent=eventAge(s));
     if (scrollDown) body.scrollTop = 0;
   }
 }
@@ -1415,6 +1055,7 @@ document.getElementById('sideTab').addEventListener('click', () => setSide(true)
 document.getElementById('sideBack').addEventListener('click', closeDetail);
 document.getElementById('sideRows').addEventListener('mouseleave', (e) => { if (e.currentTarget.dataset.stale) renderSide(); });
 document.getElementById('sideRows').addEventListener('click', (e) => {
+  if(e.target.closest('#historyMore')){state.historyLimit+=60;renderNow();return;}
   const b = e.target.closest('.srow'); if (b) openDetail(b.dataset.key);
 });
 document.addEventListener('keydown', (e) => {
@@ -1431,12 +1072,14 @@ if (state.full) {
 }
 
 
+document.getElementById('main').addEventListener('click',e=>{const card=e.target.closest('.card[data-key]');if(card&&!e.target.closest('button,a'))openDetail(card.dataset.key);});
 document.getElementById('overviewBtn').onclick=()=>{hideTip();office?.resetView?.();};
-document.getElementById('agentSearch').addEventListener('input',e=>{state.search=e.target.value.toLocaleLowerCase().trim();renderNow();});
+document.getElementById('agentSearch').addEventListener('input',e=>{state.search=e.target.value.toLocaleLowerCase().trim();state.historyLimit=60;renderNow();});
+document.querySelector('.roster-scope').addEventListener('click',e=>{const b=e.target.closest('[data-scope]');if(!b)return;state.scope=b.dataset.scope;state.historyLimit=60;document.querySelectorAll('[data-scope]').forEach(x=>x.setAttribute('aria-pressed',x===b));renderNow();});
 document.querySelector('.roster-filters').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;state.statusFilter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.setAttribute('aria-pressed',x===b));renderNow();});
 document.getElementById('sideRows').addEventListener('pointerover',e=>{const b=e.target.closest('.srow');if(b&&office)office.hoverKey=b.dataset.key;});
 document.getElementById('sideRows').addEventListener('pointerleave',()=>{if(office)office.hoverKey=null;});
-document.getElementById('detailBody').addEventListener('click',e=>{const b=e.target.closest('[data-focus-agent]');if(b)office?.focusAgent?.(b.dataset.focusAgent);});
+document.getElementById('detailBody').addEventListener('click',e=>{const b=e.target.closest('[data-focus-agent]');if(b){if(state.view!=='office')document.getElementById('sceneView').click();office?.focusAgent?.(b.dataset.focusAgent);}});
 
 setInterval(tickTimes, 1000);
 </script>

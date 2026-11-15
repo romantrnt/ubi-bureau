@@ -252,7 +252,7 @@ class Watcher extends EventEmitter {
     this.magpies = sources.map(({ url, key }, i) => {
       const source = new Magpie({ url, key, hours });
       source.on('change', () => this.emit('change'));
-      source.on('warning', (message) => console.error(`Magpie source ${i + 1}: ${message}; its sessions are idle. Retrying.`));
+      source.on('warning', (message) => console.error(`Magpie source ${i + 1}: ${message}; current presence is unknown. Retrying.`));
       return source;
     });
     this.ompDir = ompDir;
@@ -395,9 +395,11 @@ class Watcher extends EventEmitter {
     }
 
     for (const [file, t] of this.trackers) {
+      if (!statSafe(file)) { this.trackers.delete(file); changed = true; continue; }
       const activity = OMP_LIKE.has(t.session.agent) ? Math.max(t.session.lastEventAt || 0, t.session.mtime || 0) : (t.session.lastEventAt || t.session.mtime || 0);
       if (activity < since) { this.trackers.delete(file); changed = true; }
     }
+    for (const [file, retryAt] of this.failed) if (retryAt <= now) this.failed.delete(file);
 
     if (changed) this.emit('change');
   }
@@ -406,7 +408,7 @@ class Watcher extends EventEmitter {
   track(c, since) {
     const st = statSafe(c.file);
     const t = this.trackers.get(c.file);
-    if (!st) return OMP_LIKE.has(c.agent) && this.trackers.delete(c.file);
+    if (!st) return this.trackers.delete(c.file);
     if (!t) {
       if (st.mtimeMs < since) return false;
       this.open(c, st);
@@ -435,13 +437,21 @@ class Watcher extends EventEmitter {
       if (c.agent === 'dsh' && Date.now() - t.readAt < DSH_REPLAY_MS) return false;
       this.open(c, st);
       return true;
+    } else if (!t.whole && (st.ino !== t.ino || (st.size === t.offset && st.mtimeMs !== t.mtime))) {
+      // Rotated JSONL files can be the same size or larger than the previous
+      // inode. Reading from the old offset would mix two unrelated histories.
+      this.open(c, st);
+      return true;
     } else if (st.size > t.offset) {
+      t.geminiAnyStatusWritten = false;
       this.feed(t, readRange(c.file, t.offset, st.size, t.decoder), false);
+      if (c.agent === 'gemini' && t.geminiAnyStatusWritten) t.session.statusObservedAt = st.mtimeMs;
       t.offset = st.size;
       changed = true;
     } else if (st.size < t.offset) {
-      // File was rewritten; start over.
-      this.trackers.delete(c.file);
+      // Publish the replacement in the same tick; no stale row or empty tick.
+      this.open(c, st);
+      return true;
     }
     if (c.metadata) {
       const meta = statSafe(c.metadata);
@@ -451,7 +461,7 @@ class Watcher extends EventEmitter {
         changed = true;
       }
     }
-    t.session.mtime = st.mtimeMs;
+    t.mtime = t.session.mtime = st.mtimeMs;
     return changed;
   }
 
@@ -462,7 +472,7 @@ class Watcher extends EventEmitter {
     session.mtime = st.mtimeMs;
     if (c.agent === 'gemini') session.geminiProject = c.project;
     const apply = { claude: applyClaude, codex: applyCodex, gemini: applyGemini, copilot: applyCopilot, kimi: applyKimi, dsh: applyDsh, grok: applyGrok, omp: applyOMP, pi: applyOMP, antigravity: applyAntigravity }[c.agent];
-    const t = { session, offset: st.size, partial: '', apply, mtime: st.mtimeMs };
+    const t = { session, offset: st.size, partial: '', apply, mtime: st.mtimeMs, ino: st.ino };
     if (c.agent === 'dsh') {
       t.whole = true;
       t.readAt = Date.now();
@@ -499,6 +509,11 @@ class Watcher extends EventEmitter {
     if (c.agent === 'gemini' && c.file.endsWith('.json')) {
       t.whole = true;
       try { applyGeminiDocument(session, JSON.parse(readRange(c.file, 0, st.size))); } catch {}
+      const old = this.trackers.get(c.file)?.session;
+      // On first load, the document mtime might describe a title-only edit.
+      // Only a changed message observed by this watcher can use that clock.
+      if (session._statusRevision && old) session.statusObservedAt = old._geminiLastMessage === session._geminiLastMessage
+        ? old.statusObservedAt : st.mtimeMs;
       this.trackers.set(c.file, t);
       return t;
     }
@@ -522,6 +537,10 @@ class Watcher extends EventEmitter {
       const meta = statSafe(c.metadata);
       t.metaMtime = meta?.mtimeMs; t.metaSize = meta?.size;
     }
+    // Gemini re-appends its current message with its original timestamp.
+    // Only a lifecycle-bearing record can use the file's write time; a later
+    // title/model/$set record must not revive the previous message.
+    if (c.agent === 'gemini' && t.geminiStatusWritten) session.statusObservedAt = st.mtimeMs;
     this.trackers.set(c.file, t);
     return t;
   }
@@ -563,7 +582,14 @@ class Watcher extends EventEmitter {
       if (!line) continue;
       let d;
       try { d = JSON.parse(line); } catch { continue; }
+      const revision = t.session._statusRevision || 0;
       try { t.apply(t.session, d); } catch {}
+      if (t.session.agent === 'gemini') {
+        t.geminiStatusWritten = revision !== (t.session._statusRevision || 0);
+        // Incremental reads may include a message and metadata in one batch.
+        // Startup still uses only the last record to avoid reviving history.
+        if (t.geminiStatusWritten) t.geminiAnyStatusWritten = true;
+      }
     }
   }
 
@@ -641,7 +667,7 @@ class Watcher extends EventEmitter {
       // A permission prompt from the optional Claude Code hook, until the log moves on.
       const wait = s.agent === 'claude' && !s.subagent && this.waiting.get(s.id);
       if (wait && wait.at > (s.lastEventAt || 0)) {
-        out.push({ ...s, status: 'waiting', activity: wait.message || null, lastEventAt: wait.at });
+        out.push({ ...s, status: 'waiting', activity: wait.message || null, lastEventAt: wait.at, statusObservedAt: wait.at });
         continue;
       }
       out.push(s);
@@ -679,7 +705,11 @@ class Watcher extends EventEmitter {
         if (!other[field]) other[field] = s[field];
       }
       other.subagent ||= s.subagent;
-      if (s.status === 'thinking') other.status = 'thinking';
+      if (s.status === 'thinking') {
+        other.status = 'thinking';
+        other.liveObservedAt = Math.max(other.liveObservedAt || 0, s.liveObservedAt || 0);
+        other.statusObservedAt = Math.max(other.statusObservedAt || 0, s.statusObservedAt || 0);
+      }
       other.lastEventAt = Math.max(other.lastEventAt, s.lastEventAt);
     }
     const merged = out.map((s) => {
@@ -695,6 +725,16 @@ class Watcher extends EventEmitter {
         parentId: s.parentId || other.parentId, subagent: s.subagent || other.subagent } : s;
     });
     return merged.concat([...remote.values()]);
+  }
+
+  health() {
+    return {
+      logs: { mode: 'local-files', live: false, available: this.lastScan > 0, lastScanAt: this.lastScan || null,
+        sessions: this.trackers.size + this.external.length, unreadableFiles: this.failed.size,
+        discoveryIntervalMs: 5000, freshnessMs: 120000 },
+      magpie: this.magpies.map((m, index) => ({ index, mode: 'request-feed', available: !!m.lastPolledAt && !m.error,
+        lastPolledAt: m.lastPolledAt || null, reason: m.error || null })),
+    };
   }
 }
 

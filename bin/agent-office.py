@@ -62,7 +62,7 @@ class Office(Gtk.Application):
         self.view.connect('decide-policy', self.on_policy)
         self.view.connect('permission-request', lambda view, request: (request.deny(), True)[1])
         self.window.set_child(self.view)
-        self.view.load_html('<body style="background:#29282d;color:#eee;padding:50px;font:18px sans-serif">Открываем Ubi Bureau…</body>', None)
+        self.view.load_html('<body style="background:#212121;color:#ececec;padding:50px;font:18px sans-serif">Открываем Ubi Bureau…</body>', None)
         self.window.present()
         threading.Thread(target=self.start_server, daemon=True).start()
 
