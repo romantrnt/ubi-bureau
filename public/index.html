@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,14 +21,15 @@ body.pip{padding:8px}body.pip .wrap{height:calc(100dvh - 16px);display:flex;flex
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .btn,.seg button{white-space:nowrap}body.native #pipBtn{display:none!important}#appearance{padding:5px 8px;background:var(--surface-inset);color:var(--ink);border:1px solid var(--line);border-radius:5px}.setting-row{margin-bottom:10px}h1::after{display:none}.srow{padding-block:8px}.source-connection strong{font-weight:600}
 </style>
+<link rel="stylesheet" href="/bureau.css">
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1><img src="/assets/bureau.png" width="25" height="25" alt=""><span translate="no">Ubi Bureau</span></h1>
+    <h1><svg class="pixel-mark" viewBox="0 0 34 34" aria-hidden="true" shape-rendering="crispEdges"><path d="M3 3h9v4H7v20h5v4H3zm19 0h9v28h-9v-4h5V7h-5zM11 10h12v5H11zm0 9h12v5H11z"/><path fill="var(--tool)" d="M14 3h6v4h-6zm0 24h6v4h-6z"/></svg><span translate="no">Ubi Bureau</span></h1>
     <div class="summary" id="summary"></div>
     <button class="newver" id="newVer" hidden></button>
-    <div class="controls"><button class="btn" id="overviewBtn" title="Вернуться к общему виду">Общий вид</button>
+    <div class="controls"><button class="btn" id="overviewBtn" title="Return to the studio">Overview</button>
       <div class="seg" id="viewSeg">
         <button data-v="office" id="sceneView" data-t="office"></button>
         <button data-v="list" id="telemetryView" data-t="list"></button>
@@ -44,7 +45,7 @@ body.pip{padding:8px}body.pip .wrap{height:calc(100dvh - 16px);display:flex;flex
           <div class="pick-list scene-list" id="sceneSeg" role="group"></div>
         </div>
       </details>
-      <span class="toolbar-space" aria-hidden="true"></span>
+      <span class="toolbar-space" aria-hidden="true"></span><button class="btn" id="connectionsBtn" aria-haspopup="dialog">Connections <span id="connectionsCount">…</span></button>
       <button class="btn" id="pipBtn" hidden></button>
       <details class="settings menu" id="todayMenu">
         <summary class="btn" aria-controls="todayPanel" data-a="today"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20.5h17"/><rect x="5" y="11" width="3.2" height="7" rx="1"/><rect x="10.4" y="6" width="3.2" height="12" rx="1"/><rect x="15.8" y="13.5" width="3.2" height="4.5" rx="1"/></svg><span data-t="today"></span> <span class="today-tokens" id="todayTokens"></span></summary>
@@ -67,7 +68,7 @@ body.pip{padding:8px}body.pip .wrap{height:calc(100dvh - 16px);display:flex;flex
       <details class="settings menu" id="settingsMenu">
         <summary class="btn" aria-controls="settingsPanel" data-a="settings"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.1 2.6h-4l-.4 2.4A7.5 7.5 0 0 0 7.1 6.5l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-.9a7.5 7.5 0 0 0 2.6 1.5l.4 2.4h4l.4-2.4a7.5 7.5 0 0 0 2.6-1.5l2.3.9 2-3.4z"/></svg><span data-t="settings"></span></summary>
         <div class="settings-panel prefs-panel" id="settingsPanel">
-          <label class="setting-row" for="appearance">Оформление<select id="appearance"><option value="light">Светлое</option><option value="dark">Тёмное</option></select></label><div class="setting-toggles">
+          <label class="setting-row" for="appearance">Appearance<select id="appearance"><option value="light">Day shift</option><option value="dark">Night shift</option></select></label><div class="setting-toggles">
             <label class="tog"><span data-t="subagents"></span><input type="checkbox" role="switch" id="showSub"></label>
             <label class="tog" id="idleToggle"><span data-t="showIdle"></span><input type="checkbox" role="switch" id="showIdle"></label>
             <label class="tog" id="agentBadgeToggle"><span data-t="showAgent"></span><input type="checkbox" role="switch" id="showAgent"></label>
@@ -95,20 +96,20 @@ body.pip{padding:8px}body.pip .wrap{height:calc(100dvh - 16px);display:flex;flex
   <aside class="side" id="side" aria-label="Agents">
     <div class="side-pane" id="sideList">
       <div class="side-head"><b id="sideTitle"></b><span class="side-count" id="sideCount"></span>
-        <button class="icon-btn" id="sideHide" aria-label="Скрыть команду"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L21 12l-6.5 6.5M3 12h17"/></svg></button></div>
+        <button class="icon-btn" id="sideHide" aria-label="Hide sessions"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L21 12l-6.5 6.5M3 12h17"/></svg></button></div>
       <div class="roster-tools">
-        <div class="roster-scope" role="group" aria-label="Период сессий"><button id="currentScope" data-scope="current" aria-pressed="true">Сейчас <b id="currentCount">0</b></button><button id="historyScope" data-scope="history" aria-pressed="false">История <b id="historyCount">0</b></button></div>
-        <input id="agentSearch" name="agent-search" type="search" placeholder="Название, папка или ID…" aria-label="Поиск по названию, папке или ID" autocomplete="off">
-        <div class="roster-filters" role="group" aria-label="Статусы"><button data-filter="all" aria-pressed="true">Все</button><button data-filter="attention" aria-pressed="false">Нужен ответ</button><button data-filter="working" aria-pressed="false">Работают</button><button data-filter="unknown" aria-pressed="false">Неизвестно</button></div>
-        <p class="roster-hint" id="rosterHint">Статусы по последним событиям. Процесс может быть недоступен.</p>
+        <div class="roster-scope" role="group" aria-label="Session period"><button id="currentScope" data-scope="current" aria-pressed="true">Current <b id="currentCount">0</b></button><button id="historyScope" data-scope="history" aria-pressed="false">History <b id="historyCount">0</b></button></div>
+        <input id="agentSearch" name="agent-search" type="search" placeholder="Find a session…" aria-label="Search by title, folder or ID" autocomplete="off">
+        <div class="roster-filters" role="group" aria-label="Status filters"><button data-filter="all" aria-pressed="true">All</button><button data-filter="attention" aria-pressed="false">Needs you</button><button data-filter="working" aria-pressed="false">Working</button><button data-filter="unknown" aria-pressed="false">Unknown</button></div>
+        <p class="roster-hint" id="rosterHint">Recent events, with evidence shown.</p>
       </div><div class="side-body" id="sideRows"></div><div id="dotConnection" class="source-note"></div>
     </div>
     <div class="side-pane" id="sideDetail" inert>
-      <div class="side-head"><button class="icon-btn" id="sideBack" aria-label="Назад к команде"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button><b id="detailTitle"></b></div>
+      <div class="side-head"><button class="icon-btn" id="sideBack" aria-label="Back to sessions"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button><b id="detailTitle"></b></div>
       <div class="side-body" id="detailBody"></div>
     </div>
   </aside>
-  <button class="side-tab" id="sideTab" aria-label="Показать команду"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L3 12l6.5 6.5M21 12H4"/></svg><span id="sideTabCount"></span></button>
+  <button class="side-tab" id="sideTab" aria-label="Show sessions"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L3 12l6.5 6.5M21 12H4"/></svg><span id="sideTabCount"></span></button>
   <main id="main"></main>
 </div>
 <div class="conn" id="conn" data-t="disconnected"></div>
@@ -119,19 +120,13 @@ body.pip{padding:8px}body.pip .wrap{height:calc(100dvh - 16px);display:flex;flex
 <script src="/popout.js"></script>
 
 <script>
-I18N.ru = {...I18N.en, html:'ru', langName:'Русский', title:'Ubi Bureau', settings:'Настройки', scene:'Сцена', agents:'Источники', language:'Язык', showAgent:'Подписи агентов', pip:'Отдельное окно', pipClose:'Закрыть отдельное окно', pipOn:'Офис открыт в отдельном окне.', pipStop:'Закрыть просмотр', pipFailed:'Не удалось открыть окно.', pipQuiet:'Нет агентов, которым требуется внимание.', office:'Сцена', list:'Телеметрия', wentHome:'вне офиса', loading3d:'Открываем офис…', failed3d:'Не удалось загрузить 3D-сцену.', all:'Все источники', subagents:'Показывать субагентов', showIdle:'Неактивные в текущем списке', notify:'Уведомления', notifyBlocked:'Уведомления не разрешены.', sound:'Звук', stuck:m=>`Нет новых событий ${m} мин`, today:'Сегодня', turnsL:'ходов', tokensL:'токенов', agentsL:'агентов', context:'Контекст', topProjects:'Активные проекты', summaryNote:'По локальным журналам с полуночи. Большие журналы могут быть прочитаны частично.', noUsage:'Сегодня пока нет записей.', agentsTitle:'Команда', recent:'Последние сообщения', noMessages:'В журнале нет сообщений.', back:'Назад', hidePanel:'Скрыть команду', showPanel:'Показать команду', modelL:'Модель', folderL:'Папка', privateNote:'Содержимое сообщений скрыто.', loadingMsgs:'Загружаем…', disconnected:'Связь прервана. Подключаемся…', needsYou:'Нужен ответ', working:'Работают', finished:'Завершены', idle:'Неактивны', unknown:'Нет свежих данных', thinking:'Обдумывает', tool:'Выполняет', typing:'Пишет ответ', waiting:'Нужен ответ', done:'Завершён', interrupted:'Прерван', error:'Ошибка', copy:'Копировать команду', copied:'Скопировано', sub:'Субагент', auto:'Авто', empty:'Пока нет доступных сессий. Новые локальные агенты появятся здесь автоматически.', doneNote:p=>`${p}: завершено`};
 for(const [key,label,src] of [['dot','Dot','/assets/agents/dot.svg'],['codex','Codex','/assets/agents/codex.svg']]) { const b=OFFICE_AGENT_BADGES[key]; if(b){b.label=label;b.logo=src;b.image.src=src;} }
 // Language: your pick in the 🌐 menu, else the language of your prompts
 // (the server guesses it), else the browser's, else English.
 let L = I18N.en;
 let langCode = 'en';
 let rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' });
-function chooseLang(serverGuess) {
-  const pick = store.get('lang', 'ru');
-  if (pick !== 'auto' && I18N[pick]) return pick;
-  if (serverGuess && I18N[serverGuess]) return serverGuess;
-  return i18nFromBrowser(navigator.languages || [navigator.language]) || 'en';
-}
+function chooseLang() { return 'en'; }
 function applyLang(code) {
   if (code === langCode && L === I18N[code] && document.documentElement.dataset.localized) return;
   document.documentElement.dataset.localized = 'true';
@@ -158,7 +153,7 @@ const store = (() => {
   return { get, set };
 })();
 
-const PREF_DEFAULTS = { view: 'office', quality: 'high', scene: 'office', agents: [], showSub: false, showIdle: false, showAgent: true, sound: false, notify: true, side: true, lang: 'ru', theme: 'dark' };
+const PREF_DEFAULTS = { view: 'office', quality: 'high', scene: 'office', agents: [], showSub: false, showIdle: false, showAgent: true, sound: false, notify: true, side: true, lang: 'en', theme: 'dark' };
 function validAgentId(v) {
   return typeof v === 'string' && v !== 'all' && /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(v) && !Object.hasOwn(Object.prototype, v);
 }
@@ -273,7 +268,7 @@ function resumeCmd(s) {
   if (s.agent === 'grok') return `${cd}grok --resume ${shq(s.id)}`;
   if (s.agent === 'pi') return `${cd}pi --session ${shq(s.sessionId || s.id)}`;
   if (s.agent === 'opencode') return `${cd}opencode --session ${shq(s.id)}`;
-  if (s.agent === 'hermes') return `${cd}hermes --resume ${shq(s.id)}`;
+  if (s.agent === 'hermes') return s.resumeCommand || '';
   return s.agent === 'codex' ? `${cd}codex resume ${shq(s.id)}` : '';
 }
 
@@ -364,7 +359,7 @@ function render() {
   document.getElementById('summary').innerHTML = GROUPS.filter(g => ['needsYou','working','unknown'].includes(g.key)).map((g) => {
     const n = count(g.match); if(!n)return '';
     const color = g.key === 'needsYou' ? 'var(--waiting)' : g.key === 'working' ? 'var(--tool)' : g.key === 'unknown' ? 'var(--faint)' : 'var(--done)';
-    return `<span class="chip"><span class="dot" style="color:${color}"></span>${g.key === 'unknown' ? 'Нет данных' : L[g.key]} <b>${n}</b></span>`;
+    return `<span class="chip"><span class="dot" style="color:${color}"></span>${g.key === 'unknown' ? 'Unknown' : L[g.key]} <b>${n}</b></span>`;
   }).join('');
 
   renderToday();
@@ -412,7 +407,7 @@ function render() {
     main.innerHTML = `<div class="empty">${esc(PIP ? L.pipQuiet : L.empty)}</div>`;
     return;
   }
-  main.innerHTML = (state.full ? `<div class="telemetry-heading"><h2>${state.scope === 'history' ? 'История сессий' : 'Телеметрия'}</h2><p>Последние события локальных источников. ${state.scope === 'history' ? 'Завершённые сессии не участвуют в сцене.' : 'Неизвестный статус показан явно.'}</p></div>` : '') + groups.map((g) => {
+  main.innerHTML = (state.full ? `<div class="telemetry-heading"><h2>${state.scope === 'history' ? 'Session history' : 'Telemetry'}</h2><p>Recent events from local sources. ${state.scope === 'history' ? 'Completed sessions stay in history.' : 'Unconfirmed activity is marked unknown.'}</p></div>` : '') + groups.map((g) => {
     const items = list.filter((s) => g.match(s.status)).slice(0, state.scope === 'history' ? state.historyLimit : 160);
     if (!items.length) return '';
     return `<section><h2>${L[g.key]} <span class="n">${items.length}</span></h2><div class="grid">${items.map((s) => card(s, now)).join('')}</div></section>`;
@@ -432,7 +427,7 @@ function tickTimes() {
 
 function statusLabel(s) {
   if (s.source !== 'dot-snapshot') return L[s.status] || s.status;
-  return 'Live-статус недоступен';
+  return 'Live status unavailable';
 }
 function onData(data) {
   state.receivedAt = Date.now();
@@ -555,7 +550,7 @@ function syncControls() {
   document.querySelectorAll('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === state.view));
   document.querySelectorAll('#qualSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === state.quality));
   document.getElementById('qualSeg').style.display = view === 'office' ? '' : 'none';
-  document.getElementById('sceneMenu').hidden = view !== 'office' || state.quality !== 'high';
+  document.getElementById('sceneMenu').hidden = true;
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.classList.contains('on')));
   showSub.checked = state.showSub;
   showIdle.checked = state.showIdle;
@@ -570,7 +565,7 @@ function syncControls() {
   notifyBtn.disabled = ['native-denied','denied'].includes(perm);
   const note=document.getElementById('notifyNote');
   note.hidden = !['native-denied','denied'].includes(perm);
-  note.textContent = perm === 'native-denied' ? 'Системные уведомления недоступны в этом нативном окне. Можно включить звук.' : L.notifyBlocked;
+  note.textContent = perm === 'native-denied' ? 'System notifications are unavailable in this native window. Sound is available.' : L.notifyBlocked;
 }
 notifyBtn.addEventListener('change', async () => {
   if (notifyBtn.checked && Notification.permission !== 'granted') {
@@ -593,46 +588,46 @@ document.addEventListener('click', (e) => {
 const tip = document.getElementById('tip');
 let tipKey = null, tipPinned = false, tipAt = { x: 0, y: 0 };
 function agentNameFor(s) { return s.title || s.project || (s.agent === 'dot' ? 'Dot' : AGENT_NAME[s.agent]) || s.agent; }
-function sourceFor(s) { return `${s.agent === 'dot' ? 'Dot' : AGENT_NAME[s.agent] || s.agent}${s.subagent ? ' · Субагент' : s.agent === 'dot' ? ' · Координатор' : ''}`; }
+function sourceFor(s) { return `${s.agent === 'dot' ? 'Dot' : AGENT_NAME[s.agent] || s.agent}${s.subagent ? ' · Subagent' : s.agent === 'dot' ? ' · Coordinator' : ''}`; }
 function telemetry(s, compact=false) {
   if(s.source==='dot-snapshot')return '';
   const parts=[];
   if(s.model)parts.push(esc(s.model));
-  if(Number.isFinite(s.today?.tokens))parts.push(`${fmtTokens(s.today.tokens)} токенов сегодня`);
+  if(Number.isFinite(s.today?.tokens))parts.push(`${fmtTokens(s.today.tokens)} tokens today`);
   return parts.length ? `<div class="telemetry">${parts.map(p=>`<span>${p}</span>`).join('')}</div>` : '';
 }
 function excerpt(s) {
   if(s.source==='dot-snapshot')return '';
   const reply=!ACTIVE.has(s.status)&&s.reply;
   const text=reply||s.prompt;
-  return text ? `<div class="session-excerpt" title="${esc(text)}"><span>${reply?'Ответ':'Запрос'}</span> ${esc(String(text).slice(0,220))}</div>` : '';
+  return text ? `<div class="session-excerpt" title="${esc(text)}"><span>${reply?'Reply':'Prompt'}</span> ${esc(String(text).slice(0,220))}</div>` : '';
 }
 function eventAge(s) {
   const at=s.source==='dot-snapshot'?s.observedAt:s.presence?.observedAt||s.lastEventAt;
-  return Number.isFinite(at)?`${s.source==='dot-snapshot'?'Снимок':'Событие'}: ${dur(Date.now()-state.skew-at)} назад`:'Время события недоступно';
+  return Number.isFinite(at)?`${s.source==='dot-snapshot'?'Snapshot':'Event'}: ${dur(Date.now()-state.skew-at)} ago`:'Event time unavailable';
 }
 function evidenceLabel(s) {
-  if(s.presence?.source==='demo' && s.agent!=='dot')return 'Демонстрация';
-  if(s.source==='dot-snapshot')return 'Снимок Dot';
-  if(s.presence?.live)return 'Прямой сигнал';
-  return s.presence?.source==='database' ? 'База сессий' : s.source==='magpie' ? 'Magpie' : 'Журнал сессии';
+  if(s.presence?.source==='demo' && s.agent!=='dot')return 'Demo data';
+  if(s.source==='dot-snapshot')return 'Snapshot Dot';
+  if(s.presence?.live)return 'Direct signal';
+  return s.presence?.source==='database' ? 'Session database' : s.source==='magpie' ? 'Magpie' : 'Session log';
 }
 function presenceNote(s) {
-  if(s.source==='dot-snapshot') return 'Live-статус и число активных субагентов недоступны. Снимок даёт только контекст главного Dot.';
-  if(s.presence?.live)return 'Статус подтверждён текущим прямым сигналом источника.';
-  if(s.status==='unknown')return `${({'connection-lost':'Соединение с локальным потоком прервано. Текущий статус неизвестен.','stale-evidence':'Нет новых событий более двух минут.','no-observation':'Время последнего события неизвестно.','historical-session':'Сохранённая сессия без подтверждённой активности.'})[s.presence?.reason] || 'Нет актуального подтверждения работы процесса.'}${s.presence?.lastKnownStatus ? ` Последний известный статус: ${L[s.presence.lastKnownStatus] || s.presence.lastKnownStatus}.` : ''}`;
-  return isHistory(s) ? 'Сессия завершена по журналу. В сцене не отображается.' : 'Последнее действие известно из журнала. Доступность процесса не подтверждена.';
+  if(s.source==='dot-snapshot') return 'Live status and active subagent count are unavailable. This snapshot provides context for the main Dot only.';
+  if(s.presence?.live)return 'Status confirmed by a current direct signal from the source.';
+  if(s.status==='unknown')return `${({'connection-lost':'The local event stream disconnected. Current status is unknown.','stale-evidence':'No new events for more than two minutes.','no-observation':'The last event time is unavailable.','historical-session':'Saved session without confirmed recent activity.'})[s.presence?.reason] || 'Current process activity is unconfirmed.'}${s.presence?.lastKnownStatus ? ` Last known status: ${L[s.presence.lastKnownStatus] || s.presence.lastKnownStatus}.` : ''}`;
+  return isHistory(s) ? 'The session ended according to its log and stays in history.' : 'The log records the latest action. Process availability is unconfirmed.';
 }
 function renderSources() {
   const dc=state.data.dotConnection;
-  const at=state.receivedAt ? hhmm(state.receivedAt) : 'ожидание';
-  const dot=!dc?.available ? 'Снимок недоступен' : `${dc.stale ? 'Устаревший снимок' : 'Последний снимок'} ${hhmm(dc.observedAt)}`;
+  const at=state.receivedAt ? hhmm(state.receivedAt) : 'waiting';
+  const dot=!dc?.available ? 'Snapshot unavailable' : `${dc.stale ? 'Older snapshot' : 'Latest snapshot'} ${hhmm(dc.observedAt)}`;
   const box=document.getElementById('dotConnection');
   box.dataset.connected=String(state.connected);
-  if(!box.querySelector('#sourceDetails'))box.innerHTML='<div class="source-connection"><i class="connection-indicator" aria-hidden="true"></i><strong></strong><span style="margin-left:auto"></span></div><p></p><button class="source-details" id="sourceDetails">Источники и достоверность</button>';
-  box.querySelector('strong').textContent=state.connected?'Локальный поток подключён':'Локальный поток недоступен';
+  if(!box.querySelector('#sourceDetails'))box.innerHTML='<div class="source-connection"><i class="connection-indicator" aria-hidden="true"></i><strong></strong><span style="margin-left:auto"></span></div><p></p><button class="source-details" id="sourceDetails">Sources and evidence</button>';
+  box.querySelector('strong').textContent=state.connected?'Local stream connected':'Local stream disconnected';
   box.querySelector('.source-connection span').textContent=at;
-  box.querySelector('p').textContent=`Dot: ${dot}. Активные субагенты: недоступно.`;
+  box.querySelector('p').textContent=`Dot: ${dot}. Active subagents: unavailable.`;
 }
 function placeTip() {
   if (!tipKey) return;
@@ -651,7 +646,7 @@ function placeTip() {
 function refreshTip() {
   if (!tipKey) return;
   const s=state.data.sessions.find(x=>x.key===tipKey);if(!s)return hideTip();
-  const when=s.source==='dot-snapshot' ? `Снимок ${hhmm(s.observedAt)}` : timeLabel(s,Date.now()-state.skew);
+  const when=s.source==='dot-snapshot' ? `Snapshot ${hhmm(s.observedAt)}` : timeLabel(s,Date.now()-state.skew);
   tip.dataset.key=s.key;
   tip.innerHTML=`<div class="agent-peek"><div class="peek-head">${agentLogo(s.agent)}<strong>${esc(agentNameFor(s))}</strong></div><div class="peek-status" style="--s:${statusColor(s.status)}"><i></i>${esc(statusLabel(s))}${s.activity ? `<span class="peek-activity">${esc(s.activity)}</span>` : ''}</div>${excerpt(s)}${contextBar(s.context)}${telemetry(s)}<div class="peek-meta"><span>${esc(sourceFor(s))}</span><span>${esc(eventAge(s)||when)}</span></div></div>`;
   placeTip();
@@ -670,7 +665,7 @@ const officeOpts={
 };
 let office = null;
 let officeKind = null;
-// The 3D office (three.js + models) is only fetched when someone picks it.
+// Load the true 3D pixel studio and wait for a settled frame.
 // Until the new office has drawn a settled frame, show a loader instead of a
 // half-built scene.
 const officeEl = document.getElementById('office');
@@ -678,26 +673,16 @@ function setLoading(on, text) {
   officeEl.classList.toggle('loading', on);
   if (text) document.getElementById('loaderText').textContent = text;
 }
-function showSceneError(){ officeKind=null; setLoading(true,'3D-сцена недоступна'); document.getElementById('loaderText').innerHTML='Не удалось открыть 3D-сцену.<br><button class="btn" id="retryScene">Повторить</button><button class="btn" id="openTelemetry">Открыть телеметрию</button>'; document.querySelector('.office-loader .spin').style.display='none'; document.getElementById('retryScene').onclick=()=>{document.querySelector('.office-loader .spin').style.display='';makeOffice();}; document.getElementById('openTelemetry').onclick=()=>document.getElementById('telemetryView').click(); }
+function showSceneError(){ officeKind=null; setLoading(true,'Studio unavailable'); document.getElementById('loaderText').innerHTML='Could not open the pixel studio. Check graphics support or use telemetry.<br><button class="btn" id="retryScene">Retry</button><button class="btn" id="openTelemetry">Open telemetry</button>'; document.querySelector('.office-loader .spin').style.display='none'; document.getElementById('retryScene').onclick=()=>{document.querySelector('.office-loader .spin').style.display='';makeOffice();}; document.getElementById('openTelemetry').onclick=()=>document.getElementById('telemetryView').click(); }
 async function makeOffice() {
-  const high = true;
-  const scene = high && state.scene !== 'office' && state.scenes.some((x) => x.id === state.scene) ? state.scene : 'office';
-  const kind = high ? `high:${scene}` : 'mid';
-  if (kind === officeKind) return;
-  officeKind = kind;
-  setLoading(true, high ? L.loading3d : L.loading2d);
-  let Cls = window.Office;
-  const opts = { ...officeOpts, showAgent: state.showAgent };
-  if (high) {
-    try {
-      Cls = (await import('/office3d.js')).Office3D;
-      if (scene !== 'office') {
-        const m = await fetch(`/scenes/${scene}/manifest.json`).then((r) => r.json());
-        opts.scene = { ...m, base: `/scenes/${scene}/` };
-      }
-    } catch (e) { console.error(e); showSceneError(); return; }
-    if (officeKind !== kind) return;
-  }
+  const kind='high:office';
+  if(kind===officeKind)return;
+  officeKind=kind;
+  setLoading(true,'Opening the pixel studio…');
+  let Cls;
+  const opts={...officeOpts,showAgent:state.showAgent};
+  try { Cls=(await import('/office3d.js')).Office3D; } catch(error) { console.error(error);showSceneError();return; }
+  if(officeKind!==kind)return;
   if (office) office.destroy();
   let mine;
   try {
@@ -711,8 +696,8 @@ async function makeOffice() {
   render();
   const ok = await mine.ready;
   if (office !== mine) return;
-  if (!ok && high) {
-    // 3D failed (no WebGL, missing files…): fall back to the 2D office.
+  if (ok === false) {
+    // Keep failures explicit; telemetry remains available while graphics is unavailable.
     mine.destroy(); office = null; showSceneError();
     return;
   }
@@ -815,7 +800,7 @@ setInterval(loadVersion, 30 * 60 * 1000);
 
 // Language: a list of the nine translations plus Auto, in a toolbar menu.
 function renderLangMenu() {
-  const pick = store.get('lang', 'ru');
+  const pick = store.get('lang', 'en');
   document.getElementById('langName').textContent = pick === 'auto' ? L.auto : I18N[pick]?.langName || L.auto;
   const item = (v, label, sub) => `<button role="option" aria-selected="${v === pick}" data-lang="${v}" class="${v === pick ? 'on' : ''}"><span class="lbl">${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}${CHECK}</button>`;
   document.getElementById('langList').innerHTML = item('auto', L.auto, I18N[chooseLangAuto()]?.langName) +
@@ -830,7 +815,7 @@ document.getElementById('langList').addEventListener('click', (e) => {
   closeMenus();
 });
 popout = new OfficePopout({
-  preferences: () => ({ ...Object.fromEntries(Object.keys(PREF_DEFAULTS).map((k) => [k, state[k]])), lang: store.get('lang', 'ru') }),
+  preferences: () => ({ ...Object.fromEntries(Object.keys(PREF_DEFAULTS).map((k) => [k, state[k]])), lang: store.get('lang', 'en') }),
   office: () => office,
   text: (key) => L[key],
   changed: () => { syncControls(); render(); },
@@ -887,7 +872,7 @@ function measureBar() {
   document.documentElement.style.setProperty('--bar', `${Math.round(h)}px`);
 }
 function syncFull() {
-  document.getElementById('sideTitle').textContent = 'Сессии';
+  document.getElementById('sideTitle').textContent = 'Sessions';
   document.getElementById('sideHide').title = L.hidePanel;
   document.getElementById('sideHide').setAttribute('aria-label', L.hidePanel);
   document.getElementById('sideBack').title = L.back;
@@ -938,12 +923,12 @@ function renderSide() {
   const now = Date.now() - state.skew;
   const list = visible().sort((a,b)=>(b.lastEventAt||0)-(a.lastEventAt||0));
   document.getElementById('sideCount').textContent = list.length;
-  document.getElementById('sideTabCount').textContent = `Сессии · ${list.length}`;
+  document.getElementById('sideTabCount').textContent = `Sessions · ${list.length}`;
   const pool=rosterPool();
   document.getElementById('currentCount').textContent=pool.filter(s=>!isHistory(s)).length;
   document.getElementById('historyCount').textContent=pool.filter(isHistory).length;
   document.querySelector('.roster-filters').hidden=state.scope==='history';
-  document.getElementById('rosterHint').textContent=state.scope==='history' ? 'Завершённые сессии доступны для просмотра, вне сцены.' : 'Статус по последнему событию. Доступность процесса не гарантируется.';
+  document.getElementById('rosterHint').textContent=state.scope==='history' ? 'Completed sessions remain available in history.' : 'Latest log event. Process availability unconfirmed.';
   const shown=state.scope==='history' ? list.slice(0,state.historyLimit) : list;
   const rows=GROUPS.map(g=>{
     const items=shown.filter(s=>g.match(s.status));
@@ -952,11 +937,11 @@ function renderSide() {
     if(!items.length)return '';
     return `<div class="side-group">${esc(L[g.key])}<span>${items.length}</span></div>`+items.map(s=>{
       const act=s.stuck ? L.stuck(s.stuck) : s.activity||'';
-      return `<button class="srow${s.subagent?' sub':''}" data-key="${esc(s.key)}" data-status="${esc(s.status)}" style="--s:${statusColor(s.status)}">${agentLogo(s.agent)||'<span></span>'}<span class="nm">${esc(agentNameFor(s))}</span><span class="tm" data-time="${esc(s.key)}">${esc(timeLabel(s,now))}</span><span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act?`<span>${esc(act)}</span>`:''}</span>${excerpt(s)}${telemetry(s,true)}${contextBar(s.context)}<div class="row-source"><span>${esc(evidenceLabel(s))}${s.presence?.stale?' · устарел':''}</span>${s.cwd?`<span title="${esc(s.cwd)}">${esc(s.project||s.cwd.split('/').filter(Boolean).pop())}</span>`:''}</div></button>`;
+      return `<button class="srow${s.subagent?' sub':''}" data-key="${esc(s.key)}" data-status="${esc(s.status)}" style="--s:${statusColor(s.status)}">${agentLogo(s.agent)||'<span></span>'}<span class="nm">${esc(agentNameFor(s))}</span><span class="tm" data-time="${esc(s.key)}">${esc(timeLabel(s,now))}</span><span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act?`<span>${esc(act)}</span>`:''}</span>${excerpt(s)}${telemetry(s,true)}${contextBar(s.context)}<div class="row-source"><span>${esc(evidenceLabel(s))}${s.presence?.stale?' · stale':''}</span>${s.cwd?`<span title="${esc(s.cwd)}">${esc(s.project||s.cwd.split('/').filter(Boolean).pop())}</span>`:''}</div></button>`;
     }).join('');
-  }).join('')+(shown.length<list.length?`<button class="btn history-more" id="historyMore">Ещё ${Math.min(60,list.length-shown.length)} из ${list.length-shown.length}</button>`:'');
+  }).join('')+(shown.length<list.length?`<button class="btn history-more" id="historyMore">Show ${Math.min(60,list.length-shown.length)} of ${list.length-shown.length}</button>`:'');
   const box = document.getElementById('sideRows');
-  const html=rows||`<div class="empty"><strong>${state.search?'Ничего не найдено':state.scope==='history'?'История пуста':'Нет подходящих сессий'}</strong>${state.search?'Попробуйте название проекта, папку или ID.':'Новые локальные сессии появятся автоматически.'}</div>`;
+  const html=rows||`<div class="empty"><strong>${state.search?'No matches':state.scope==='history'?'No completed sessions yet':'Your studio is ready'}</strong>${state.search?'Try a project name, folder or session ID.':'Start a supported agent. New sessions appear automatically.' + '<button class="btn empty-connections" data-open-connections>Check connections</button>'}</div>`;
   // Preserve focus and the agent under the pointer while accepting new sessions immediately.
   if(box.dataset.html!==html){
     const focused=box.contains(document.activeElement)?document.activeElement?.dataset.key:null;
@@ -1008,17 +993,17 @@ function renderDetail(scrollDown) {
           : `<div class="msg ${m.role}">${esc(m.text)}<span class="at">${esc(hhmm(m.at))}</span></div>`).join('')}</div>`;
   const resume = resumeCmd(s);
   const html = `
-    <div class="detail-source">${esc(sourceFor(s))} · ${esc(evidenceLabel(s))}</div>${inScene(s) ? `<button class="btn focus-agent" data-focus-agent="${esc(s.key)}">Показать в офисе</button>` : ''}<div class="presence-note">${esc(presenceNote(s))}</div>
+    <div class="detail-source">${esc(sourceFor(s))} · ${esc(evidenceLabel(s))}</div>${inScene(s) ? `<button class="btn focus-agent" data-focus-agent="${esc(s.key)}">Find in studio</button>` : ''}<div class="presence-note">${esc(presenceNote(s))}</div>
     <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(statusLabel(s))}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
     ${s.source !== 'dot-snapshot' ? `<dl class="dmeta">
       <dt>${esc(L.modelL)}</dt><dd>${esc(s.model || '—')}${s.subagent ? ` · ${esc(L.sub)}` : ''}</dd>
       <dt>${esc(L.folderL)}</dt><dd class="mono" title="${esc(s.cwd || '')}">${esc(s.cwd || '—')}</dd>
       <dt>${esc(L.today)}</dt><dd>${s.today ? `${s.today.turns} ${esc(L.turnsL)} · ${fmtTokens(s.today.tokens)} ${esc(L.tokensL)}` : '—'}</dd>
       <dt>ID</dt><dd class="mono">${esc(s.id || '—')}</dd>
-      <dt>Последний сигнал</dt><dd data-event-age="${esc(s.key)}"></dd>
-      <dt>Время</dt><dd data-time="${esc(s.key)}"></dd>
+      <dt>Last evidence</dt><dd data-event-age="${esc(s.key)}"></dd>
+      <dt>Time</dt><dd data-time="${esc(s.key)}"></dd>
     </dl>` : ''}
-    ${s.source === 'dot-snapshot' ? `<p class="msgs-note">Снимок ${esc(new Date(s.observedAt).toLocaleString())}. ${s.snapshotStale ? 'Устарел: текущий статус неизвестен.' : 'Последний полученный статус, не live-поток.'} Live-статус и число активных субагентов недоступны. Модель и расход не экспортируются.</p>` : ''}
+    ${s.source === 'dot-snapshot' ? `<p class="msgs-note">Snapshot ${esc(new Date(s.observedAt).toLocaleString())}. ${s.snapshotStale ? 'Stale: current status is unknown.' : 'Latest imported snapshot. Live status is unavailable.'} Live status and active subagent count are unavailable. Model and usage are not exported.</p>` : ''}
     ${contextBar(s.context)}${excerpt(s)}<div class="detail-source" data-event-age="${esc(s.key)}"></div>
     ${resume ? `<div class="dactions"><button class="copy" data-copy="${esc(resume)}">${L.copy}</button></div>` : ''}
     ${s.source === 'dot-snapshot' ? '' : `<div class="side-sec">${esc(L.recent)}</div>${msgs}`}`;

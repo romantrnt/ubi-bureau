@@ -307,3 +307,37 @@ test('Watcher discovers Antigravity sessions, resolves cwd from history.jsonl, a
   fs.utimesSync(note, later, later);
   assert.equal(watcher.sessions().find((s) => s.id === parentId).title, '修正 "登入"');
 });
+
+test('App and IDE logs are discovered separately; mirrored conversations have one body and a new session appears on rescan', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bureau-antigravity-app-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = path.join(__dirname, '../src/watcher.js'), mod = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(file, 'utf8'), {
+    module: mod, Buffer, Date, console, setInterval, clearInterval, process: { env: {} },
+    require: name => name === 'os' ? { homedir: () => root } : createRequire(file)(name),
+  }, { filename: file });
+  const write = (kind, id, type, at, content) => {
+    const home = path.join(root, '.gemini', kind);
+    const target = path.join(home, 'brain', id, '.system_generated/logs/transcript.jsonl');
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, JSON.stringify({ type, created_at: ts(at), content }) + '\n');
+    fs.writeFileSync(path.join(home, 'history.jsonl'), JSON.stringify({ conversationId: id, workspace: `/demo/${kind}` }) + '\n');
+    return target;
+  };
+  write('antigravity', 'mirror', 'PLANNER_RESPONSE', 0, 'Finished');
+  write('antigravity-ide', 'mirror', 'USER_INPUT', -60_000, 'Old copied prompt');
+  write('antigravity-ide', 'ide', 'USER_INPUT', 0, 'IDE task');
+  const watcher = new mod.exports.Watcher(); watcher.tick();
+  const rows = watcher.sessions();
+  assert.equal(rows.length, 2, 'a mirrored ID is one session');
+  assert.equal(rows.find(s => s.id === 'mirror').status, 'done');
+  assert.equal(rows.find(s => s.id === 'mirror').cwd, '/demo/antigravity');
+  assert.equal(rows.find(s => s.id === 'ide').connectionId, 'antigravity-ide');
+  const connections = watcher.connections();
+  assert.equal(connections.providers.find(p => p.id === 'antigravity-app').status, 'connected');
+  assert.equal(connections.providers.find(p => p.id === 'antigravity-ide').sessions, 1);
+  assert.equal(connections.providers.find(p => p.id === 'antigravity-cli').status, 'missing');
+  write('antigravity', 'new', 'USER_INPUT', 0, 'New task');
+  watcher.lastScan = 0; watcher.tick();
+  assert.ok(watcher.sessions().some(s => s.id === 'new'));
+});

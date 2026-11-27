@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Purpose-built, actual 3D mascots. No screenshot textures or external assets.
@@ -11,25 +10,25 @@ const mat = (name, color, roughness = .46, metalness = .04, emissive = null) => 
   if (!materials.has(name)) materials.set(name, new THREE.MeshStandardMaterial({color, roughness, metalness, ...(emissive ? {emissive, emissiveIntensity:.55} : {})}));
   return materials.get(name);
 };
+// Hard-edged voxels are intentional: the silhouette stays crisp after the
+// nearest-neighbour framebuffer is enlarged, including at camera rotations.
 function rounded(w,h,d,r=.04) {
-  const key=[w,h,d,r].join(',');
-  if(!geometries.has(key)) geometries.set(key,new RoundedBoxGeometry(w,h,d,1,Math.min(r,Math.min(w,h,d)/2-.001)));
+  const key=[w,h,d].join(',');
+  if(!geometries.has(key))geometries.set(key,new THREE.BoxGeometry(w,h,d));
   return geometries.get(key);
 }
 function box(parent,w,h,d,x,y,z,material,r=.04) {
   const m=new THREE.Mesh(rounded(w,h,d,r),material); m.position.set(x,y,z); parent.add(m); return m;
 }
 function sphere(parent,r,x,y,z,material,scale=null){
-  const key='s'+r;if(!geometries.has(key))geometries.set(key,new THREE.SphereGeometry(r,10,8));
-  const m=new THREE.Mesh(geometries.get(key),material);m.position.set(x,y,z);if(scale)m.scale.set(...scale);parent.add(m);return m;
+  const m=box(parent,r*1.65,r*1.65,r*1.65,x,y,z,material);if(scale)m.scale.set(...scale);return m;
 }
 function rod(parent,points,r,material){
   for(let i=1;i<points.length;i++){
     const a=new THREE.Vector3(...points[i-1]),b=new THREE.Vector3(...points[i]),delta=b.clone().sub(a);
-    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,delta.length(),10),material);
+    const mesh=new THREE.Mesh(rounded(r*2,delta.length(),r*2),material);
     mesh.position.copy(a).add(b).multiplyScalar(.5);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());parent.add(mesh);
   }
-  for(const p of points)sphere(parent,r,...p,material);
 }
 function group(parent,name,x=0,y=0,z=0){const g=new THREE.Group();g.name=name;g.position.set(x,y,z);parent.add(g);return g;}
 // A shared back-face shell gives a true silhouette at every orbit angle.
@@ -38,9 +37,9 @@ const outline = new THREE.MeshBasicMaterial({color:0x293342,side:THREE.BackSide}
 const ignoreRaycast = () => {};
 outline.onBeforeCompile = shader => {
   shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>',
-    'vec3 transformed = vec3(position) + normal * 0.014;');
+    'vec3 transformed = vec3(position) + normal * 0.022;');
 };
-outline.customProgramCacheKey = () => 'bureau-silhouette-v1';
+outline.customProgramCacheKey = () => 'bureau-voxel-silhouette-v2';
 
 // Collapse stationary parts by material within each articulated group. A robot
 // keeps its named arm/leg/head pivots while using a handful of draw calls.
@@ -104,11 +103,17 @@ const PROVIDERS = {
   gemini:{body:0x6d8edc,trim:0xd0dcff,mark:'star'},
   copilot:{body:0x8895d7,trim:0xd6d7ea,mark:'goggles'},
   antigravity:{body:0xb89bba,trim:0xe5d2e1,mark:'star'},
+  hermes:{body:0x839d70,trim:0xe3dca7,mark:'wings'},
+  deepseek:{body:0x4f8fc5,trim:0xbde4ec,mark:'whale'},
+  pi:{body:0xaa8cb3,trim:0xe8c9de,mark:'brackets'},
+  opencode:{body:0x858f93,trim:0xe6e0cf,mark:'goggles'},
+  kimi:{body:0x78aaa6,trim:0xd0e8d8,mark:'star'},
+  grok:{body:0x7e8292,trim:0xe4e2e5,mark:'brackets'},
   omp:{body:0x669fb6,trim:0xd5effa,mark:'brackets'},
 };
 export function workerMascot(provider='codex',variant=0){
   if(provider==='codex')return codexMascot();
-  const style=Object.hasOwn(PROVIDERS,provider)?provider:'other';
+  const style=provider==='dsh'?'deepseek':Object.hasOwn(PROVIDERS,provider)?provider:'other';
   const tab=variant%3===1?1:variant%3===2?2:0;
   const root=instantiate('worker:'+style+':'+tab,()=>buildWorkerMascot(style,tab));
   root.name=provider+'-mascot';
@@ -134,6 +139,11 @@ function buildWorkerMascot(provider,variant){
     box(arm,.15,.095,.17,0,-.26,.025,trim,.025);
   }
   const head=group(root,'head',0,.95,0);
+  // Provider-specific profiles are recognisable from both side and overview.
+  if(provider==='hermes'){for(const side of [-1,1]){box(head,.16,.12,.18,side*.39,.14,0,trim);box(head,.13,.12,.16,side*.49,.23,0,trim);box(head,.10,.12,.14,side*.56,.32,0,trim);}box(head,.13,.12,.42,0,.29,0,paint);}
+  if(provider==='deepseek'){box(head,.18,.10,.16,.38,.14,-.03,paint);box(head,.12,.17,.12,.48,.23,-.03,paint);box(head,.24,.075,.23,-.20,.29,-.05,paint);}
+  if(provider==='claude'){for(const side of [-1,1]){box(head,.16,.10,.13,side*.38,.11,0,trim);box(head,.10,.17,.12,side*.29,.29,0,trim);}box(head,.10,.14,.12,0,.31,0,trim);}
+  if(provider==='antigravity'){box(head,.72,.035,.44,0,.37,0,trim);box(head,.035,.12,.035,-.34,.30,.20,trim);box(head,.035,.12,.035,.34,.30,-.20,trim);}
   box(head,.66,.49,.38,0,0,0,paint,.08);
   box(head,.56,.355,.035,0,-.005,.2,trim,.04);
   box(head,.48,.275,.035,0,-.005,.224,face,.035);
@@ -188,17 +198,13 @@ function buildCodexMascot(){
     sphere(arm,.042,-side*.052,-.24,.068,blue);
   }
   const head=group(root,'head',0,.96,0);
-  // Continuous cloud silhouette, softly extruded rather than overlapping balloons.
-  const sh=new THREE.Shape();
-  sh.moveTo(-.36,-.25);sh.bezierCurveTo(-.53,-.25,-.59,-.14,-.53,.015);
-  sh.bezierCurveTo(-.57,.15,-.47,.28,-.34,.27);
-  sh.bezierCurveTo(-.29,.46,-.05,.49,.055,.35);
-  sh.bezierCurveTo(.22,.43,.36,.34,.38,.23);
-  sh.bezierCurveTo(.55,.20,.58,.03,.51,-.06);
-  sh.bezierCurveTo(.57,-.20,.46,-.29,.31,-.28);
-  sh.lineTo(-.36,-.25);
-  const cloud=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.26,bevelEnabled:true,bevelSegments:4,steps:1,bevelSize:.034,bevelThickness:.035,curveSegments:10}),ice);
-  cloud.position.z=-.15;head.add(cloud);
+  // A stepped cloud, authored as a clean pixel profile rather than a
+  // smoothed extrusion. The blue CRT face remains the Codex signature.
+  box(head,.92,.40,.31,0,-.02,0,ice);
+  box(head,.72,.63,.31,-.015,.06,0,ice);
+  box(head,.33,.19,.31,-.16,.43,0,ice);
+  box(head,.25,.13,.31,.22,.34,0,ice);
+  box(head,1.05,.22,.27,0,-.05,0,ice);
   box(head,.77,.56,.13,-.005,-.045,.20,blue,.12);
   box(head,.665,.45,.07,-.005,-.045,.275,blueDark,.092);
   box(head,.60,.395,.035,-.005,-.045,.316,screen,.075);

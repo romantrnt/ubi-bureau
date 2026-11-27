@@ -14,16 +14,21 @@ const { newSession, clean } = require('./parsers');
 // and env come from the caller, which is how tests keep their fixtures out of
 // the developer's real databases.
 function candidates(home, env) {
+  const hermesHome = env.HERMES_HOME || (env.LOCALAPPDATA ? path.join(env.LOCALAPPDATA, 'hermes') : path.join(home, '.hermes'));
+  const profiles = [];
+  if (!env.HERMES_HOME) {
+    try {
+      for (const e of fs.readdirSync(path.join(hermesHome, 'profiles'), { withFileTypes: true })) {
+        if (e.isDirectory()) profiles.push(path.join(hermesHome, 'profiles', e.name, 'state.db'));
+      }
+    } catch {}
+  }
   return {
     opencode: [
       env.OPENCODE_DB,
       path.join(env.XDG_DATA_HOME || path.join(home, '.local', 'share'), 'opencode', 'opencode.db'),
     ].filter(Boolean),
-    hermes: [
-      env.HERMES_HOME && path.join(env.HERMES_HOME, 'state.db'),
-      env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'hermes', 'state.db'),
-      path.join(home, '.hermes', 'state.db'),
-    ].filter(Boolean),
+    hermes: [path.join(hermesHome, 'state.db'), ...profiles],
   };
 }
 
@@ -229,12 +234,14 @@ function opencodeV2(db, since) {
 function opencode(db, since) {
   const has = (name) => !!db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name);
   const byId = new Map();
+  let readable = false;
   if (has('session')) {
-    try { for (const s of opencodeV1(db, since)) byId.set(s.id, s); } catch { /* try the other layout */ }
+    try { for (const s of opencodeV1(db, since)) byId.set(s.id, s); readable = true; } catch { /* try the other layout */ }
   }
   if (has('session_v2') && has('session_message')) {
-    try { for (const s of opencodeV2(db, since)) byId.set(s.id, s); } catch { /* keep what v1 gave */ }
+    try { for (const s of opencodeV2(db, since)) byId.set(s.id, s); readable = true; } catch { /* keep what v1 gave */ }
   }
+  if (!readable) throw new Error('Unsupported OpenCode session schema');
   return [...byId.values()];
 }
 
@@ -243,28 +250,36 @@ function opencode(db, since) {
 // Hermes writes one row per message; the newest row's role and finish reason
 // are the same signal a streaming log would give.
 function hermesState(message, ended) {
+  if (message?.finish_reason === 'error') return { status: 'error', error: 'Turn failed' };
+  if (ended) return { status: message?.finish_reason === 'stop' ? 'done' : 'interrupted' };
   if (!message) return { status: ended ? 'idle' : 'thinking' };
   if (message.role === 'user' || message.role === 'tool') return { status: 'thinking' };
   if (message.role === 'assistant') {
     if (message.finish_reason === 'tool_calls') return { status: 'tool', activity: message.tool_name || 'Tool' };
-    if (message.finish_reason === 'stop' || message.finish_reason === 'length') return { status: 'done' };
+    if (message.finish_reason === 'stop') return { status: 'done' };
+    if (['length', 'cancelled', 'canceled', 'interrupted', 'abort'].includes(message.finish_reason)) return { status: 'interrupted' };
     if (!message.finish_reason) return { status: 'typing' };
   }
   return { status: ended ? 'done' : 'idle' };
 }
 
 function hermes(db, since) {
+  const columns = new Set(db.prepare('PRAGMA table_info(sessions)').all().map(r => r.name));
+  const messageColumns = new Set(db.prepare('PRAGMA table_info(messages)').all().map(r => r.name));
+  const optional = name => columns.has(name) ? `s.${name}` : `NULL AS ${name}`;
+  const active = messageColumns.has('active') ? ' and active = 1' : '';
   // Unlike opencode, hermes keeps no "last updated" column, so a long chat that
   // is still in use would drop out if only the start time were compared.
-  const rows = db.prepare(`select s.id, s.model, s.parent_session_id, s.started_at, s.ended_at
+  const rows = db.prepare(`select s.id, s.model, s.parent_session_id, s.started_at, s.ended_at,
+    ${['title', 'cwd', 'source'].map(optional).join(', ')}
     from sessions s
     where s.started_at >= ?
-       or (select max(timestamp) from messages m where m.session_id = s.id) >= ?
+       or (select max(timestamp) from messages m where m.session_id = s.id${active}) >= ?
     order by s.started_at desc`).all(since / 1000, since / 1000);
   const lastMessage = db.prepare(`select role, tool_name, content, timestamp, finish_reason
-    from messages where session_id = ? order by timestamp desc limit 1`);
+    from messages where session_id = ?${active} order by timestamp desc, rowid desc limit 1`);
   const lastOfRole = db.prepare(`select content, timestamp from messages
-    where session_id = ? and role = ? order by timestamp desc limit 1`);
+    where session_id = ? and role = ?${active} order by timestamp desc, rowid desc limit 1`);
 
   const out = [];
   for (const row of rows) {
@@ -273,18 +288,21 @@ function hermes(db, since) {
     const reply = lastOfRole.get(row.id, 'assistant');
     const state = hermesState(last, !!row.ended_at);
     const startedAt = row.started_at * 1000;
-    out.push(session('hermes', row.id, {
-      parentId: row.parent_session_id,
+    const value = session('hermes', row.id, {
+      parentId: row.source === 'subagent' ? row.parent_session_id : null,
+      title: clean(row.title), cwd: row.cwd,
       model: row.model,
       prompt: prompt ? clean(prompt.content) : null,
       reply: reply ? clean(reply.content) : null,
       status: state.status,
       activity: state.activity,
-      error: last && last.finish_reason === 'error' ? 'Turn failed' : null,
+      error: state.error,
       turnStartedAt: prompt ? prompt.timestamp * 1000 : null,
-      lastEventAt: Math.max(last ? last.timestamp * 1000 : 0, startedAt),
+      lastEventAt: Math.max(last ? last.timestamp * 1000 : 0, startedAt, (row.ended_at || 0) * 1000),
       startedAt,
-    }));
+    });
+    if (row.source === 'subagent') value.subagent = true;
+    out.push(value);
   }
   return out;
 }
@@ -294,14 +312,32 @@ function hermes(db, since) {
 // Returns every opencode and hermes session inside the window. A database that
 // cannot be read is skipped and its sessions simply stay out of the office;
 // the file-based readers are untouched by any failure here.
-function poll(since, { home = os.homedir(), env = process.env } = {}) {
+function poll(since, { home = os.homedir(), env = process.env, diagnostics = [] } = {}) {
   const out = [];
-  if (!sqliteModule()) return out;
   const paths = candidates(home, env);
-  for (const [read, list] of [[opencode, paths.opencode], [hermes, paths.hermes]]) {
-    const db = database(list);
-    if (!db) continue;
-    try { out.push(...read(db, since)); } catch { /* keep the other agent's rows */ } finally { db.close(); }
+  for (const [agent, read, list] of [['opencode', opencode, paths.opencode], ['hermes', hermes, paths.hermes]]) {
+    const files = agent === 'hermes' ? list : [list.find(file => fs.existsSync(file)) || list[0]];
+    for (const file of files) {
+      const health = { agent, path: file, detected: fs.existsSync(file), readable: false, sessions: 0, reason: 'No session database found.' };
+      diagnostics.push(health);
+      if (!health.detected) continue;
+      if (!sqliteModule()) { health.reason = 'This connection requires Node.js 22.13 or newer with node:sqlite.'; continue; }
+      const db = database([file]);
+      if (!db) { health.reason = 'The session database cannot be opened read-only. Check file permissions.'; continue; }
+      try {
+        const rows = read(db, since);
+        if (agent === 'hermes') for (const row of rows) row.hermesHome = path.resolve(path.dirname(file));
+        if (agent === 'hermes' && file !== list[0]) for (const row of rows) {
+          const profile = path.basename(path.dirname(file));
+          row.sessionId = row.id; row.id = `${profile}/${row.id}`;
+          if (row.parentId) row.parentId = `${profile}/${row.parentId}`;
+          row.profile = profile;
+        }
+        out.push(...rows);
+        Object.assign(health, { readable: true, sessions: rows.length, reason: 'Session database is readable; status is recorded evidence, not a live process check.' });
+      } catch { health.reason = 'The database schema is unsupported or temporarily unreadable. Retrying automatically.'; }
+      finally { db.close(); }
+    }
   }
   return out;
 }
@@ -310,6 +346,14 @@ function poll(since, { home = os.homedir(), env = process.env } = {}) {
 function location() {
   const paths = candidates(os.homedir(), process.env);
   return { opencode: paths.opencode[0], hermes: paths.hermes[0] };
+}
+
+function hermesResumeCommand(s, platform = process.platform) {
+  const id = s.sessionId || s.id;
+  if (s.subagent || !s.hermesHome || platform === 'win32' || !/^[A-Za-z0-9][\w.-]{0,199}$/.test(id || '')
+    || /[\x00-\x1f\x7f]/.test(s.hermesHome)) return null;
+  const quote = value => "'" + String(value).replace(/'/g, "'\\''") + "'";
+  return `HERMES_HOME=${quote(s.hermesHome)} hermes --resume ${quote(id)}`;
 }
 
 // A Node without node:sqlite silently loses both agents, so say it once at
@@ -323,4 +367,4 @@ function notice({ home = os.homedir(), env = process.env, sqlite: available = sq
     + 'their databases are being skipped, other agents are unaffected.';
 }
 
-module.exports = { poll, location, notice, opencodeState, opencodeV2State, hermesState };
+module.exports = { poll, location, candidates, notice, opencodeState, opencodeV2State, hermesState, hermesResumeCommand };

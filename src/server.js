@@ -10,6 +10,7 @@ const PUBLIC = path.join(__dirname, '..', 'public');
 const STATIC = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/bureau-tools.js': ['bureau-tools.js', 'text/javascript; charset=utf-8'],
+  '/bureau.css': ['bureau.css', 'text/css; charset=utf-8'],
   '/office.js': ['office.js', 'text/javascript; charset=utf-8'],
   '/office3d.js': ['office3d.js', 'text/javascript; charset=utf-8'],
   '/i18n.js': ['i18n.js', 'text/javascript; charset=utf-8'],
@@ -22,6 +23,7 @@ const scenes = require('./scenes');
 const updater = require('./update');
 const { ompResumeCommand } = require('./omp');
 const { dayKey } = require('./parsers');
+const { hermesResumeCommand } = require('./external');
 
 function serveFile(res, root, rel) {
   const file = path.normalize(path.join(root, rel));
@@ -96,6 +98,7 @@ function view(s, now, { privacy, demo }) {
     // OMP subagents can't be resumed on their own.
     out.resumeCommand = s.subagent || !s.file ? null : ompResumeCommand(s);
   }
+  if (s.agent === 'hermes') out.resumeCommand = privacy ? null : hermesResumeCommand(s);
   if (privacy) {
     out.prompt = out.reply = out.title = null;
     if (out.activity) out.activity = out.activity.split(/[:\s]/)[0];
@@ -220,6 +223,12 @@ function createServer(watcher, opts, { onShutdown, onRestart } = {}) {
     } else if (url.pathname === '/api/sessions') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(snapshot(watcher, opts)));
+    } else if (url.pathname === '/api/connections') {
+      if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }).end(); return; }
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+      res.end(JSON.stringify(watcher.connections?.({ privacy: opts.privacy }) || {
+        checkedAt: Date.now(), discoveryIntervalMs: 5000, live: false, providers: [],
+      }));
     } else if (url.pathname === '/api/shutdown' && req.method === 'POST') {
       // Only our CLI sends this header; a web page can't add a custom header
       // to a cross-site request without a CORS preflight, which we never allow.

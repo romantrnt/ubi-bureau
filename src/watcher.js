@@ -42,8 +42,11 @@ const GEMINI_DIR = path.join(GEMINI_HOMES[0], 'tmp');
 const COPILOT_DIR = path.join(home, '.copilot', 'session-state');
 const ANTIGRAVITY_HOME = process.env.ANTIGRAVITY_HOME || path.join(home, '.gemini', 'antigravity-cli');
 const ANTIGRAVITY_DIR = path.join(ANTIGRAVITY_HOME, 'brain');
-const ANTIGRAVITY_HISTORY = path.join(ANTIGRAVITY_HOME, 'history.jsonl');
-const ANTIGRAVITY_ANNOTATIONS = path.join(ANTIGRAVITY_HOME, 'annotations');
+const ANTIGRAVITY_ROOTS = [
+  { id: 'antigravity-cli', home: ANTIGRAVITY_HOME },
+  { id: 'antigravity-app', home: process.env.ANTIGRAVITY_APP_HOME || path.join(home, '.gemini', 'antigravity') },
+  { id: 'antigravity-ide', home: process.env.ANTIGRAVITY_IDE_HOME || path.join(home, '.gemini', 'antigravity-ide') },
+];
 const CLIENT_DIRS = {
   kimi: path.join(process.env.KIMI_CODE_HOME || path.join(home, '.kimi-code'), 'sessions'),
   dsh: path.join(process.env.DSH_HOME || path.join(home, '.dsh'), 'sessions'),
@@ -156,12 +159,17 @@ function copilotFiles() {
 
 function antigravityFiles(sinceMs) {
   const out = [];
-  for (const e of ls(ANTIGRAVITY_DIR)) {
+  const seen = new Set();
+  for (const root of ANTIGRAVITY_ROOTS) for (const e of ls(path.join(root.home, 'brain'))) {
     if (!e.isDirectory()) continue;
-    const file = path.join(ANTIGRAVITY_DIR, e.name, '.system_generated', 'logs', 'transcript.jsonl');
+    const file = path.join(root.home, 'brain', e.name, '.system_generated', 'logs', 'transcript.jsonl');
     const st = statSafe(file);
     if (!st || st.mtimeMs < sinceMs) continue;
-    out.push({ agent: 'antigravity', file, id: e.name });
+    let real;
+    try { real = fs.realpathSync(file); } catch { continue; }
+    if (seen.has(real)) continue;
+    seen.add(real);
+    out.push({ agent: 'antigravity', file, id: e.name, connectionId: root.id, antigravityHome: root.home });
   }
   return out;
 }
@@ -259,7 +267,6 @@ class Watcher extends EventEmitter {
     this.ompParentIds = new Map(); // parent log -> { mtime, size, id }
     this.waiting = new Map(); // Claude session ID -> { at, message } from the optional hook
     this.antigravityWorkspaces = new Map();
-    this.antigravityHistoryMtime = 0;
     this.antigravityTitles = new Map();
     // opencode and hermes sessions, refreshed from their databases on each scan.
     this.external = [];
@@ -290,24 +297,30 @@ class Watcher extends EventEmitter {
   }
 
   loadAntigravityHistory() {
-    const st = statSafe(ANTIGRAVITY_HISTORY);
-    if (!st || st.mtimeMs === this.antigravityHistoryMtime) return false;
-    this.antigravityHistoryMtime = st.mtimeMs;
-    const start = Math.max(0, st.size - 2 * 1024 * 1024);
-    for (const line of readRange(ANTIGRAVITY_HISTORY, start, st.size).split('\n')) {
-      try {
-        const d = JSON.parse(line);
-        if (d.conversationId && d.workspace) this.antigravityWorkspaces.set(d.conversationId, d.workspace);
-      } catch {}
+    let changed = false;
+    this.antigravityHistoryTimes ||= new Map();
+    for (const root of ANTIGRAVITY_ROOTS) {
+      const file = path.join(root.home, 'history.jsonl');
+      const st = statSafe(file);
+      if (!st || st.mtimeMs === this.antigravityHistoryTimes.get(file)) continue;
+      this.antigravityHistoryTimes.set(file, st.mtimeMs);
+      changed = true;
+      const start = Math.max(0, st.size - 2 * 1024 * 1024);
+      for (const line of readRange(file, start, st.size).split('\n')) {
+        try {
+          const d = JSON.parse(line);
+          if (d.conversationId && d.workspace) this.antigravityWorkspaces.set(`${root.home}:${d.conversationId}`, d.workspace);
+        } catch {}
+      }
     }
-    return true;
+    return changed;
   }
 
-  antigravityTitle(id) {
-    const file = path.join(ANTIGRAVITY_ANNOTATIONS, `${id}.pbtxt`);
+  antigravityTitle(id, root = ANTIGRAVITY_HOME) {
+    const file = path.join(root, 'annotations', `${id}.pbtxt`);
     const st = statSafe(file);
     if (!st) return null;
-    const cached = this.antigravityTitles.get(id);
+    const cached = this.antigravityTitles.get(file);
     if (cached && cached.mtime === st.mtimeMs) return cached.title;
     let title = null;
     try {
@@ -315,7 +328,7 @@ class Watcher extends EventEmitter {
       const m = raw.match(/title:\s*"((?:[^"\\]|\\.)*)"/);
       if (m) title = pbtxtString(m[1]).replace(/\s+/g, ' ').trim() || null;
     } catch {}
-    this.antigravityTitles.set(id, { mtime: st.mtimeMs, title });
+    this.antigravityTitles.set(file, { mtime: st.mtimeMs, title });
     return title;
   }
 
@@ -343,8 +356,9 @@ class Watcher extends EventEmitter {
   // listing is rebuilt here and every row is compared to the last one.
   loadExternal(since) {
     let rows;
-    try { rows = external.poll(since, { home, env: process.env }); } catch { return false; }
-    const key = rows.map((s) => `${s.agent}:${s.id}:${s.status}:${s.lastEventAt}`).join('|');
+    this.databaseHealth = [];
+    try { rows = external.poll(since, { home, env: process.env, diagnostics: this.databaseHealth }); } catch { return false; }
+    const key = JSON.stringify(rows);
     if (key === this.externalKey) return false;
     this.externalKey = key;
     this.external = rows;
@@ -467,6 +481,8 @@ class Watcher extends EventEmitter {
 
   open(c, st) {
     const session = newSession(c.agent, c.id, c.file);
+    if (c.connectionId) session.connectionId = c.connectionId;
+    if (c.antigravityHome) session.antigravityHome = c.antigravityHome;
     if (c.sessionId) session.sessionId = c.sessionId;
     if (c.parentId) { session.parentId = c.parentId; session.subagent = true; }
     session.mtime = st.mtimeMs;
@@ -659,9 +675,10 @@ class Watcher extends EventEmitter {
         if (name) s.title = name;
       }
       if (s.agent === 'antigravity') {
-        if (!s.cwd) s.cwd = this.antigravityWorkspaces.get(s.id) || (s.parentId && this.antigravityWorkspaces.get(s.parentId)) || null;
+        const root = s.antigravityHome || ANTIGRAVITY_HOME;
+        if (!s.cwd) s.cwd = this.antigravityWorkspaces.get(`${root}:${s.id}`) || (s.parentId && this.antigravityWorkspaces.get(`${root}:${s.parentId}`)) || null;
         // Cached by mtime, so a renamed conversation picks up its new title.
-        const t = this.antigravityTitle(s.id);
+        const t = this.antigravityTitle(s.id, root);
         if (t) s.title = t;
       }
       // A permission prompt from the optional Claude Code hook, until the log moves on.
@@ -689,6 +706,16 @@ class Watcher extends EventEmitter {
         const s = out[i];
         if (s.agent === 'claude' && !s.subagent && s._rootUuid && !kept.has(s)) out.splice(i, 1);
       }
+    }
+    // App and IDE can mirror the same conversation. Keep one body and choose
+    // by recorded event time, so copying a stale log cannot revive its turn.
+    const antigravityById = new Map();
+    for (const s of out) if (s.agent === 'antigravity') {
+      const previous = antigravityById.get(s.id);
+      if (!previous || (s.lastEventAt || 0) > (previous.lastEventAt || 0)) antigravityById.set(s.id, s);
+    }
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (out[i].agent === 'antigravity' && antigravityById.get(out[i].id) !== out[i]) out.splice(i, 1);
     }
     out.push(...this.external);
     if (!this.magpies.length) return out;
@@ -735,6 +762,53 @@ class Watcher extends EventEmitter {
       magpie: this.magpies.map((m, index) => ({ index, mode: 'request-feed', available: !!m.lastPolledAt && !m.error,
         lastPolledAt: m.lastPolledAt || null, reason: m.error || null })),
     };
+  }
+
+  connections({ privacy = false } = {}) {
+    const databases = external.candidates(home, process.env);
+    const definitions = [
+      ['claude', 'Claude Code', [CLAUDE_DIR], 'Run Claude Code locally. Set CLAUDE_CONFIG_DIR before starting Bureau for a custom configuration directory.', 'https://code.claude.com/docs/en/how-claude-code-works'],
+      ['codex', 'Codex CLI & Desktop', [CODEX_DIR], 'Run a local Codex chat. Set CODEX_HOME before starting Bureau for another local session directory. Cloud-only chats are not local session logs.', 'https://github.com/openai/codex'],
+      ['gemini', 'Gemini CLI', GEMINI_HOMES.map(r => path.join(r, 'tmp')), 'Run Gemini CLI locally. Set GEMINI_CLI_HOME before starting Bureau for a custom home (the CLI appends .gemini).', 'https://github.com/google-gemini/gemini-cli'],
+      ...ANTIGRAVITY_ROOTS.map(r => [r.id, `Antigravity ${r.id.endsWith('cli') ? 'CLI' : r.id.endsWith('ide') ? 'IDE' : 'App'}`, [path.join(r.home, 'brain')], 'Open a local Antigravity conversation. Requires readable .system_generated/logs/transcript.jsonl logs; older encrypted/binary stores are not supported. Custom roots: ANTIGRAVITY_HOME, ANTIGRAVITY_APP_HOME, ANTIGRAVITY_IDE_HOME.', 'https://antigravity.google/docs/hooks']),
+      ['copilot', 'GitHub Copilot CLI', [COPILOT_DIR], 'Run GitHub Copilot CLI locally. Browser and editor chats without local events.jsonl files are not supported.', 'https://github.com/github/copilot-cli'],
+      ['hermes', 'Hermes Agent', databases.hermes, 'Run Hermes Agent locally. Set HERMES_HOME before starting Bureau for an isolated profile; default named profiles are discovered automatically. Requires Node.js 22.13 or newer with node:sqlite.', 'https://github.com/NousResearch/hermes-agent/blob/main/website/docs/developer-guide/session-storage.md'],
+      ['opencode', 'OpenCode', databases.opencode, 'Run OpenCode locally. Set OPENCODE_DB before starting Bureau for a custom SQLite database. Requires Node.js 22.13 or newer with node:sqlite.', 'https://github.com/anomalyco/opencode'],
+      ['omp', 'Oh My Pi', ompDirs(this.ompDir, process.env, home).map(r => r.dir), 'Run Oh My Pi locally. Custom session root: WMAD_OMP_SESSIONS_DIR. Named OMP profiles are discovered automatically.', null],
+      ['pi', 'Pi', piDirs(process.env, home).map(r => r.dir), 'Run Pi locally. Custom session root: PI_CODING_AGENT_SESSION_DIR or PI_CODING_AGENT_DIR.', 'https://github.com/badlogic/pi-mono'],
+      ['kimi', 'Kimi Code', [CLIENT_DIRS.kimi], 'Run Kimi Code locally. Set KIMI_CODE_HOME before starting Bureau for a custom home.', 'https://github.com/MoonshotAI/kimi-cli'],
+      ['dsh', 'DeepSeek Harness', [CLIENT_DIRS.dsh], 'Run DeepSeek Harness locally. Set DSH_HOME before starting Bureau for a custom home. Compressed logs need native multi-frame zstd support or the zstd executable. A DeepSeek model used in another client appears under that client.', 'https://github.com/deepseek-ai/deepseek-harness'],
+      ['grok', 'Grok Build', [CLIENT_DIRS.grok], 'Run Grok Build locally. Set GROK_HOME before starting Bureau for a custom home.', null],
+    ];
+    const sessions = this.sessions();
+    const providers = definitions.map(([id, name, roots, instructions, docsUrl]) => {
+      const agent = id.startsWith('antigravity-') ? 'antigravity' : id;
+      const rows = sessions.filter(s => s.agent === agent && (!s.connectionId || s.connectionId === id));
+      const paths = [...new Set(roots)].map(file => {
+        const st = statSafe(file);
+        let readable = false;
+        try { fs.accessSync(file, fs.constants.R_OK | (st?.isDirectory() ? fs.constants.X_OK : 0)); readable = true; } catch {}
+        return { path: file, exists: !!st, readable };
+      });
+      const dbHealth = (this.databaseHealth || []).filter(d => d.agent === agent);
+      const database = ['hermes', 'opencode'].includes(agent);
+      const detected = paths.some(p => p.exists);
+      const readable = database ? dbHealth.some(d => d.readable) : paths.some(p => p.readable);
+      const failed = [...this.failed.keys()].some(file => roots.some(root => file.startsWith(root + path.sep)));
+      const databaseFailure = dbHealth.find(d => d.detected && !d.readable);
+      const status = !detected ? 'missing' : !readable || failed || databaseFailure ? 'unreadable' : rows.length ? 'connected' : 'ready';
+      const reason = !detected ? 'No local session source found.'
+        : failed ? 'Some session logs could not be decoded or read. Retrying automatically.'
+        : databaseFailure ? databaseFailure.reason
+        : database && !readable ? 'The database has not been checked yet.'
+        : !readable ? 'The session source exists but cannot be read. Check directory permissions.'
+        : rows.length ? 'Local sessions found. Recorded evidence does not prove a process is live.'
+        : 'Source is readable. No sessions found in the selected time window; unsupported log formats are not inferred.';
+      return { id, agent, name, supported: true, status, detected, readable, paths: privacy ? [] : paths,
+        sessions: rows.length, lastEventAt: rows.reduce((at, s) => Math.max(at || 0, s.lastEventAt || 0), 0) || null,
+        source: database ? 'database' : 'session-log', live: false, reason, instructions, docsUrl };
+    });
+    return { checkedAt: Date.now(), discoveryIntervalMs: 5000, live: false, providers };
   }
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "ubi-bureau",
-  "version": "0.3.0",
-  "description": "A local-first 3D office for coding agents, with a native Linux window.",
+  "version": "0.4.0",
+  "description": "A pixel-art mission control for local coding agents.",
   "bin": {
     "ubi-bureau": "bin/cli.js"
   },
@@ -55,6 +55,7 @@
     "test": "node --test tests/watcher.cjs tests/omp.cjs tests/magpie.cjs tests/copilot.cjs tests/antigravity.cjs tests/external.cjs tests/hook.cjs tests/usage.cjs tests/transcript.cjs tests/server.cjs tests/clients.cjs tests/dot-snapshot.cjs tests/updates.cjs tests/office-lifecycle.cjs tests/mascots.mjs",
     "test:bureau": "node tests/run-bureau.cjs",
     "appimage": "bash scripts/build-appimage.sh",
-    "test:updates": "node --test tests/updates.cjs tests/office-lifecycle.cjs"
+    "test:updates": "node --test tests/updates.cjs tests/office-lifecycle.cjs",
+    "test:pixel": "node tests/pixel-lifecycle.cjs"
   }
 }

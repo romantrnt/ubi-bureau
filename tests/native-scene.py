@@ -19,6 +19,10 @@ root = Path(os.environ.get('BUREAU_QA_ROOT', Path(__file__).resolve().parents[1]
 fixture_home = Path(tempfile.mkdtemp(prefix='bureau-native-scene-'))
 evidence = Path(os.environ.get('BUREAU_QA_OUTPUT', '/tmp/bureau-native-scene'))
 evidence.mkdir(parents=True, exist_ok=True)
+# Inherited source overrides must never escape the synthetic fixture home.
+for key in list(os.environ):
+    if (key.startswith('WMAD_') or (key.startswith('BUREAU_') and not key.startswith('BUREAU_QA_'))) or key in ('CODEX_HOME', 'CLAUDE_CONFIG_DIR', 'GEMINI_CLI_HOME', 'ANTIGRAVITY_HOME', 'ANTIGRAVITY_APP_HOME', 'ANTIGRAVITY_IDE_HOME', 'KIMI_CODE_HOME', 'DSH_HOME', 'GROK_HOME', 'HERMES_HOME', 'OPENCODE_DB', 'LOCALAPPDATA', 'PI_CODING_AGENT_SESSION_DIR', 'PI_CODING_AGENT_DIR', 'WMAD_OMP_SESSIONS_DIR', 'OMP_CONFIG_DIR', 'OMP_HOME'):
+        os.environ.pop(key, None)
 os.environ.update(HOME=str(fixture_home), CODEX_HOME=str(fixture_home/'.codex'),
                   CLAUDE_CONFIG_DIR=str(fixture_home/'.claude'), GEMINI_CLI_HOME=str(fixture_home),
                   BUREAU_PORT='0', WMAD_NO_UPDATE_CHECK='1', XDG_CACHE_HOME=str(fixture_home/'cache'),

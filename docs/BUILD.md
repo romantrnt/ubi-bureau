@@ -79,10 +79,10 @@ The build produces the x86_64 AppImage under `dist/`. The package includes the a
 The packaging process uses the official AppImage Type 2 runtime and Node.js distribution, checking their pinned digests before use. Building requires the download tools used by the packaging script plus `mksquashfs` from squashfs-tools and tools to unpack the Node archive. Review the script and its pinned runtime source before changing the pin.
 
 ```sh
-chmod +x dist/Ubi_Bureau-0.3.0-x86_64.AppImage
-dist/Ubi_Bureau-0.3.0-x86_64.AppImage --version
-dist/Ubi_Bureau-0.3.0-x86_64.AppImage --check
-dist/Ubi_Bureau-0.3.0-x86_64.AppImage --demo
+chmod +x dist/Ubi_Bureau-0.4.0-x86_64.AppImage
+dist/Ubi_Bureau-0.4.0-x86_64.AppImage --version
+dist/Ubi_Bureau-0.4.0-x86_64.AppImage --check
+dist/Ubi_Bureau-0.4.0-x86_64.AppImage --demo
 ```
 
 The native app is single-instance. Close its window before relaunching with different data/privacy flags; activating an existing window does not change its mode.
@@ -92,7 +92,7 @@ If FUSE is unavailable, use `--appimage-extract-and-run`. Extraction does not pr
 ## Troubleshooting
 
 - **`gi` missing or WebKit namespace unavailable:** install the distribution's Python GObject/GTK4/WebKitGTK 6.0 packages and use the matching system Python.
-- **Blank office or 3D error:** check WebGL/graphics-driver support. This interface is 3D-first; an error is not silently represented as a working scene.
+- **Blank workspace:** check WebGL/graphics-driver support and local resource loading. The pixel scene is true 3D with silhouette outlines. The ledger and telemetry remain available if scene rendering fails.
 - **No agents:** confirm that supported local clients have written readable session records. Client format changes or a different home directory can prevent discovery. Do not run the app as root to work around this.
 - **Dot status unavailable:** one coordinator is shown, but this release does not connect to a cloud API. Read [Dot snapshots](DOT.md).
 - **Codex button does nothing:** a compatible `codex://` desktop handler must already be installed. The app does not install a handler or guarantee the destination application's behavior.

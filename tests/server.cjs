@@ -102,3 +102,31 @@ test('demo includes one unknown Dot without importing real observations or inven
   assert.equal(value.sessions[0].model, undefined);
   assert.equal(value.dotConnection.available, false);
 });
+
+test('connections endpoint is read-only, private-aware, uncached and protected by the loopback host guard', async t => {
+  const { EventEmitter, once } = require('node:events');
+  const { createServer } = require('../src/server');
+  const watcher = new EventEmitter(); watcher.sessions = () => [];
+  const options = [];
+  watcher.connections = opts => {
+    options.push(opts);
+    return { checkedAt: 1, live: false, providers: [{ id: 'hermes', paths: opts.privacy ? [] : [{ path: '/fixture/state.db' }] }] };
+  };
+  const server = createServer(watcher, { privacy: true });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
+  const url = `http://127.0.0.1:${server.address().port}/api/connections`;
+  const response = await fetch(url);
+  assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual((await response.json()).providers[0].paths, []);
+  assert.deepEqual(options, [{ privacy: true }]);
+  const post = await fetch(url, { method: 'POST' });
+  assert.equal(post.status, 405); assert.equal(post.headers.get('allow'), 'GET');
+  const forbidden = await new Promise((resolve, reject) => {
+    require('node:http').get(url, { headers: { host: 'untrusted.example' } }, res => {
+      res.resume(); res.on('end', () => resolve(res.statusCode));
+    }).on('error', reject);
+  });
+  assert.equal(forbidden, 403);
+  assert.equal(options.length, 1, 'forbidden requests do not query local connection state');
+});

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Ubi Bureau
-Comment=A local 3D office for coding agents
+Comment=A pixel workspace for your coding agents
 Exec=ubi-bureau
 Icon=io.github.romantrnt.UbiBureau
 Terminal=false

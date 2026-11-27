@@ -62,7 +62,7 @@ class Office(Gtk.Application):
         self.view.connect('decide-policy', self.on_policy)
         self.view.connect('permission-request', lambda view, request: (request.deny(), True)[1])
         self.window.set_child(self.view)
-        self.view.load_html('<body style="background:#212121;color:#ececec;padding:50px;font:18px sans-serif">Открываем Ubi Bureau…</body>', None)
+        self.view.load_html('<body style="background:#212121;color:#ececec;padding:50px;font:18px sans-serif">Opening Ubi Bureau…</body>', None)
         self.window.present()
         threading.Thread(target=self.start_server, daemon=True).start()
 
@@ -101,7 +101,7 @@ class Office(Gtk.Application):
                 GLib.idle_add(self.view.load_uri, self.url+'/?quality=high&dotOffice=1&native=1')
         except Exception:
             if not self.stopping.is_set():
-                GLib.idle_add(self.view.load_html, '<body style="padding:50px;font:18px sans-serif">Не удалось запустить Ubi Bureau. Проверьте зависимости: --check. Закройте и откройте приложение снова.</body>', None)
+                GLib.idle_add(self.view.load_html, '<body style="padding:50px;font:18px sans-serif">Could not start Ubi Bureau. Check dependencies with --check. Close and reopen the app.</body>', None)
 
     def do_shutdown(self):
         self.stopping.set()

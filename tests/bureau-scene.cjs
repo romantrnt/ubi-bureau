@@ -11,7 +11,7 @@ const fixture=`<!doctype html><html lang="ru"><meta charset="utf-8"><style>html,
  p.on('pageerror',e=>{errors.push(e.stack);console.error('SCENE_ERROR',e.stack)});
  await p.route('http://scene.test/**',route=>{const file=new URL(route.request().url()).pathname.slice(1);route.fulfill(file?{contentType:'text/javascript',body:fs.readFileSync(path.join(__dirname,file.startsWith('assets/')?'..':'../public',file))}:{contentType:'text/html',body:fixture})});
  await p.goto('http://scene.test/');await p.waitForFunction(()=>window.office?.framesShown>5);
- assert.equal(await p.evaluate(()=>office.room.name),'instrument-workshop');assert.equal(await p.evaluate(()=>office.assetResources.size),0,'default workshop needs no downloaded assets');
+ assert.equal(await p.evaluate(()=>office.room.name),'bureau-voxel-atelier');assert.equal(await p.evaluate(()=>office.assetResources.size),0,'default workshop needs no downloaded assets');
  await p.screenshot({path:'/tmp/bureau-scene-overview.png'});
  for(const provider of ['dot','codex']){
   const key=await p.evaluate(provider=>[...office.people.values()].find(p=>p.s.agent===provider).key,provider);

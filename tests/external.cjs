@@ -249,3 +249,81 @@ test('a session in both opencode layouts is read from session_v2, and v1-only se
   assert.equal(rows.find((s) => s.id === 'ses_1').prompt, 'from v2');
   assert.equal(rows.find((s) => s.id === 'ses_legacy').title, 'legacy only');
 });
+
+test('Hermes errors, truncated turns and closed unfinished sessions never appear running', () => {
+  const { hermesState } = require('../src/external');
+  assert.equal(hermesState({ role: 'assistant', finish_reason: 'error' }, false).status, 'error');
+  assert.equal(hermesState({ role: 'assistant', finish_reason: 'length' }, false).status, 'interrupted');
+  assert.equal(hermesState({ role: 'assistant', finish_reason: null }, true).status, 'interrupted');
+  assert.equal(hermesState({ role: 'assistant', finish_reason: 'tool_calls' }, true).status, 'interrupted');
+  assert.equal(hermesState({ role: 'assistant', finish_reason: 'stop' }, true).status, 'done');
+});
+
+test('Hermes metadata, active message generation and profile isolation match current stores', { skip: !sqlite && 'node:sqlite is unavailable' }, t => {
+  const dir = root(t), base = path.join(dir, '.hermes');
+  const create = (home, title, source = 'cli', parent = 'compression-ancestor') => {
+    fs.mkdirSync(home, { recursive: true });
+    const db = new sqlite.DatabaseSync(path.join(home, 'state.db'));
+    db.exec(`create table sessions (id text, model text, parent_session_id text, started_at real, ended_at real, title text, cwd text, source text);
+      create table messages (session_id text, role text, content text, timestamp real, finish_reason text, tool_name text, active integer);`);
+    db.prepare('insert into sessions values (?,?,?,?,?,?,?,?)').run('same-id', 'model', parent, NOW / 1000, null, title, '/demo', source);
+    const add = db.prepare('insert into messages values (?,?,?,?,?,?,?)');
+    add.run('same-id', 'assistant', 'active reply', NOW / 1000, 'stop', null, 1);
+    add.run('same-id', 'assistant', 'archived tool', (NOW + 1000) / 1000, 'tool_calls', 'bash', 0);
+    db.close();
+  };
+  create(base, 'Default');
+  create(path.join(base, 'profiles', 'coder'), 'Profile', 'subagent', 'parent');
+  const diagnostics = [];
+  const rows = poll(NOW - HOUR, { home: dir, env: {}, diagnostics }).filter(s => s.agent === 'hermes');
+  assert.equal(rows.length, 2);
+  assert.equal(rows.find(s => s.id === 'same-id').subagent, false, 'compression lineage is not proof of a subagent');
+  const profile = rows.find(s => s.id === 'coder/same-id');
+  assert.equal(profile.sessionId, 'same-id'); assert.equal(profile.parentId, 'coder/parent');
+  assert.equal(profile.title, 'Profile'); assert.equal(profile.cwd, '/demo');
+  assert.equal(profile.status, 'done'); assert.equal(profile.reply, 'active reply');
+  assert.equal(diagnostics.filter(d => d.agent === 'hermes' && d.readable).length, 2);
+  const isolated = poll(NOW - HOUR, { home: dir, env: { HERMES_HOME: path.join(base, 'profiles', 'coder') } }).filter(s => s.agent === 'hermes');
+  assert.equal(isolated.length, 1); assert.equal(isolated[0].id, 'same-id');
+});
+
+test('a corrupt database reports unavailable without leaking its contents or hiding another provider', { skip: !sqlite && 'node:sqlite is unavailable' }, t => {
+  const dir = root(t), diagnostics = [];
+  const broken = path.join(dir, 'state.db'); fs.writeFileSync(broken, 'SECRET fixture, not SQLite');
+  const rows = poll(NOW - HOUR, { home: dir, env: { HERMES_HOME: dir, OPENCODE_DB: opencodeDb(dir) }, diagnostics });
+  assert.equal(rows.length, 1); assert.equal(rows[0].agent, 'opencode');
+  const health = diagnostics.find(d => d.agent === 'hermes');
+  assert.equal(health.detected, true); assert.equal(health.readable, false);
+  assert.doesNotMatch(JSON.stringify(diagnostics), /SECRET/);
+  assert.equal(fs.readFileSync(broken, 'utf8'), 'SECRET fixture, not SQLite');
+});
+
+test('Hermes resume commands preserve the exact profile and original ID with shell metacharacters kept literal', t => {
+  const { hermesResumeCommand } = require('../src/external');
+  const { snapshot } = require('../src/server');
+  const dir = root(t), home = path.join(dir, "coder's $(touch NEVER) home");
+  const value = { agent: 'hermes', id: 'coder/same-id', sessionId: 'same-id', hermesHome: home, status: 'done' };
+  const command = hermesResumeCommand(value, 'linux');
+  assert.ok(command); assert.match(command, /--resume 'same-id'$/);
+  const bin = path.join(dir, 'bin'); fs.mkdirSync(bin);
+  const script = path.join(bin, 'hermes');
+  fs.writeFileSync(script, '#!/bin/sh\nprintf "%s\\n" "$HERMES_HOME" "$@"\n', { mode: 0o700 });
+  const run = require('node:child_process').spawnSync('/bin/sh', ['-c', command], { cwd: dir, env: { PATH: bin }, encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.stdout.trim().split('\n'), [home, '--resume', 'same-id']);
+  assert.equal(fs.existsSync(path.join(dir, 'NEVER')), false);
+  assert.equal(snapshot({ sessions: () => [value] }).sessions[0].resumeCommand, command);
+  assert.equal(snapshot({ sessions: () => [value] }, { privacy: true }).sessions[0].resumeCommand, null);
+  for (const changes of [{ subagent: true }, { hermesHome: null }, { sessionId: '--unsafe' }, { sessionId: 'bad\ncommand' }]) {
+    assert.equal(hermesResumeCommand({ ...value, ...changes }, 'linux'), null);
+  }
+  assert.equal(hermesResumeCommand(value, 'win32'), null, 'no unverified Windows shell command');
+});
+
+test('an unsupported OpenCode schema is not reported as a ready empty connection', { skip: !sqlite && 'node:sqlite is unavailable' }, t => {
+  const dir = root(t), file = path.join(dir, 'opencode.db'), diagnostics = [];
+  const db = new sqlite.DatabaseSync(file); db.exec('create table unrelated (id text)'); db.close();
+  assert.deepEqual(poll(NOW - HOUR, { home: dir, env: { OPENCODE_DB: file }, diagnostics }), []);
+  const open = diagnostics.find(d => d.agent === 'opencode');
+  assert.equal(open.detected, true); assert.equal(open.readable, false); assert.match(open.reason, /unsupported/);
+});

@@ -28,7 +28,7 @@ The 3D bundle includes **Three.js**, MIT licensed: https://github.com/mrdoob/thr
 
 **Adwaita Sans** (font version 4.001), based on Inter, is distributed under the SIL Open Font License 1.1. The unmodified variable regular font and complete supplied notice are bundled at [assets/fonts/AdwaitaSans-Regular.ttf](assets/fonts/AdwaitaSans-Regular.ttf) and [assets/fonts/Adwaita-LICENSE.txt](assets/fonts/Adwaita-LICENSE.txt). Source: https://gitlab.gnome.org/GNOME/adwaita-fonts. Obtained from the installed distribution package; no font service is contacted.
 
-## Retained pixel font
+## Pixel interface font
 
 **Pixelify Sans**, obtained from the Google Fonts repository, uses the SIL Open Font License 1.1. The font and complete supplied notice are bundled at [assets/fonts/PixelifySans.ttf](assets/fonts/PixelifySans.ttf) and [assets/fonts/OFL.txt](assets/fonts/OFL.txt).
 
@@ -49,3 +49,7 @@ The packaged Type 2 runtime comes from https://github.com/AppImage/type2-runtime
 The AppImage bundles the **official Node.js 24.22.3 Linux x64 distribution** from [nodejs.org](https://nodejs.org/dist/v24.22.3/). Its complete supplied `LICENSE`, including bundled-component notices, is copied into `THIRD-PARTY-LICENSES/node.txt` inside the AppImage. The packaging script pins the download digest.
 
 Python, PyGObject, GTK4 and WebKitGTK are **not** bundled. They are supplied by the user's distribution and retain their own licenses. Ubi Bureau's MIT source license does not relicense these components or the libraries statically linked into the AppImage runtime.
+
+## Ubi Bureau 0.4 artwork
+
+The default voxel workspace, provider character geometry and interface treatments in `web/office3d.js`, `web/mascots.js` and `public/bureau.css` were authored for Ubi Bureau. They do not import third-party scene models. Retained older renderers and optional assets keep the notices above. Provider names and marks belong to their respective owners.

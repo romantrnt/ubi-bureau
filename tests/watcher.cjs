@@ -279,3 +279,24 @@ test('resumed Claude copies of one conversation show as a single session', t => 
   f.watcher.tick();
   assert.deepEqual(Array.from(f.watcher.sessions(), s => s.id).sort(), ['newest-copy', 'other-chat']);
 });
+
+test('connection catalog separates store readiness, observed sessions and read failures without exposing transcripts', t => {
+  const f = fixture(t);
+  fs.mkdirSync(path.join(f.root, '.dsh/sessions'), { recursive: true });
+  f.watcher.tick();
+  let catalog = f.watcher.connections();
+  const get = id => catalog.providers.find(p => p.id === id);
+  assert.equal(get('codex').status, 'missing');
+  assert.equal(get('dsh').status, 'ready');
+  assert.equal(get('hermes').status, 'missing');
+  const log = f.write('2026/10/26', 90, NOW); f.watcher.lastScan = 0; f.watcher.tick();
+  catalog = f.watcher.connections();
+  assert.equal(get('codex').status, 'connected'); assert.equal(get('codex').live, false);
+  assert.equal(get('codex').sessions, 1); assert.equal(get('codex').lastEventAt, NOW);
+  assert.doesNotMatch(JSON.stringify(catalog), /long-chat|task_started/);
+  assert.ok(f.watcher.connections({ privacy: true }).providers.every(p => p.paths.length === 0));
+  f.watcher.failed.set(log.file, NOW + 60_000);
+  catalog = f.watcher.connections();
+  assert.equal(get('codex').status, 'unreadable');
+  assert.match(get('codex').reason, /Retrying/);
+});
